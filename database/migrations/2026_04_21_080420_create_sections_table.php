@@ -6,23 +6,36 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('sections', function (Blueprint $table) {
-        $table->uuid('id')->primary();
-        $table->foreignUuid('form_id')->constrained()->cascadeOnDelete();
-        $table->string('title');
-        $table->integer('order')->default(0);
-        $table->timestamps();
-});
+
+            //  UUID PK
+            $table->uuid('id')->primary();
+
+            //  formulaire
+            $table->uuid('formulaire_id');
+
+            $table->foreign('formulaire_id')
+                ->references('id')
+                ->on('formulaires')
+                ->cascadeOnDelete();
+
+            //  contenu
+            $table->string('titre');
+            $table->text('description')->nullable();
+
+            //  ordre affichage
+            $table->smallInteger('ordre');
+
+            //  éviter doublon d’ordre dans un même formulaire
+            $table->unique(['formulaire_id', 'ordre']);
+
+            // timestamps (recommandé)
+            $table->timestamps();
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('sections');

@@ -5,26 +5,51 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-   use HasApiTokens, Notifiable, HasRoles;
+    use HasApiTokens, Notifiable;
 
     protected $fillable = [
-        'name',
+        'nom',
+        'prenom',
         'email',
-        'password',
+        'mot_de_passe_hash',
+        'telephone',
+        'statut'
     ];
 
     protected $hidden = [
-    'password',
-    'remember_token',
+        'mot_de_passe_hash',
+        'remember_token',
     ];
+
+    /**
+     *  Auth password 
+     */
+    public function getAuthPassword()
+    {
+        return $this->mot_de_passe_hash;
+    }
+
+    /**
+     *  Missions
+     */
     public function missions()
-{
-    return $this->belongsToMany(
-        \App\Modules\Mission\Models\Mission::class
-    )->withPivot('role');
-}
+    {
+        return $this->belongsToMany(
+            \App\Modules\Mission\Models\Mission::class
+        );
+    }
+
+    /**
+     *  Roles (pivot user_roles)
+     */
+    public function roles()
+    {
+        return $this->belongsToMany(
+            \App\Modules\Role\Models\Role::class,
+            'user_roles'
+        )->withPivot(['date_attribution', 'attribue_par']);
+    }
 }

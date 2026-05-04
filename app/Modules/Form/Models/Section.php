@@ -5,26 +5,42 @@ namespace App\Modules\Form\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Modules\Shared\Traits\HasUuid;
 
-
 class Section extends Model
 {
     use HasUuid;
 
+    protected $table = 'sections_formulaire';
+
     protected $fillable = [
-        'form_id',
-        'title',
-        'order',
+        'id',
+        'formulaire_id',
+        'titre',
+        'description',
+        'ordre'
     ];
 
-     // 🔗 Section → Form
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    /**
+     * 🔗 Formulaire
+     */
     public function form()
     {
-        return $this->belongsTo(Form::class);
+        return $this->belongsTo(
+            \App\Modules\Form\Models\Form::class,
+            'formulaire_id'
+        );
     }
 
-    // 🔗 Section → Questions
+    /**
+     * 🔗 Questions
+     */
     public function questions()
     {
-        return $this->hasMany(Question::class)->orderBy('order');
+        return $this->hasMany(
+            \App\Modules\Form\Models\Question::class
+        )->orderBy('ordre');
     }
+
 }

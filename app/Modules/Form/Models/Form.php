@@ -5,27 +5,54 @@ namespace App\Modules\Form\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Modules\Shared\Traits\HasUuid;
 
-
 class Form extends Model
 {
     use HasUuid;
 
+    protected $table = 'formulaires';
+
     protected $fillable = [
-        'title',
+        'id',
+        'mission_id',
+        'titre',
         'description',
+        'est_modele',
+        'version',
+        'statut',
+        'cree_par'
     ];
 
-     // 🔗 Form → Sections
-    public function sections()
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    /**
+     * Mission
+     */
+    public function mission()
     {
-        return $this->hasMany(Section::class)->orderBy('order');
+        return $this->belongsTo(
+            \App\Modules\Mission\Models\Mission::class
+        );
     }
 
-    public function missions()
+    /**
+     * Créateur
+     */
+    public function creator()
     {
-        return $this->belongsToMany(
-            \App\Modules\Mission\Models\Mission::class,
-            'mission_forms'
+        return $this->belongsTo(
+            \App\Models\User::class,
+            'cree_par'
+        );
+    }
+
+    /**
+     * Sections
+     */
+    public function sections()
+    {
+        return $this->hasMany(
+            \App\Modules\Form\Models\Section::class
         );
     }
 }

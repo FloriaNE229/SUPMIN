@@ -10,20 +10,48 @@ class Response extends Model
     use HasUuid;
 
     protected $fillable = [
-        'mission_id',
+        'id',
         'question_id',
-        'user_id',
-        'answer',
+        'mission_id',
+        'agent_id',
+        'valeur_texte',
+        'valeur_json',
+        'fichiers_joints',
+        'latitude',
+        'longitude',
+        'submitted_at',
+        'mode_collecte'
     ];
 
-    public function mission()
-    {
-        return $this->belongsTo(\App\Modules\Mission\Models\Mission::class);
-    }
+    protected $casts = [
+        'valeur_json' => 'array',
+        'fichiers_joints' => 'array',
+        'submitted_at' => 'datetime'
+    ];
+
+    public $incrementing = false;
+    protected $keyType = 'string';
 
     public function question()
     {
-        return $this->belongsTo(\App\Modules\Form\Models\Question::class);
+        return $this->belongsTo(
+            \App\Modules\Form\Models\Question::class
+        );
+    }
+
+    public function mission()
+    {
+        return $this->belongsTo(
+            \App\Modules\Mission\Models\Mission::class
+        );
+    }
+
+    public function agent()
+    {
+        return $this->belongsTo(
+            \App\Models\User::class,
+            'agent_id'
+        );
     }
 
     public function user()

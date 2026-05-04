@@ -10,29 +10,50 @@ class Question extends Model
     use HasUuid;
 
     protected $fillable = [
+        'id',
         'section_id',
-        'label',
-        'type',
+        'libelle',
+        'description_aide',
+        'type_question',
         'options',
-        'is_required',
-        'order',
+        'est_obligatoire',
+        'condition_affichage',
+        'ordre',
+        'validation_regles'
     ];
 
     protected $casts = [
         'options' => 'array',
-        'is_required' => 'boolean',
+        'condition_affichage' => 'array',
+        'validation_regles' => 'array'
     ];
 
-     //  Question → Section
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    /**
+     * Section
+     */
     public function section()
     {
-        return $this->belongsTo(Section::class);
+        return $this->belongsTo(
+            \App\Modules\Form\Models\Section::class
+        );
     }
+
+    /**
+     * Réponses
+     */
 
     public function responses()
     {
         return $this->hasMany(\App\Modules\Response\Models\Response::class);
     }
+
+    /**
+     * Answers
+     */
+    
     public function answers()
     {
     return $this->hasMany(\App\Modules\Form\Models\Answer::class);

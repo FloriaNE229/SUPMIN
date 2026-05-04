@@ -25,15 +25,26 @@ class GeneratePdfJob implements ShouldQueue
         $this->missionId = $missionId;
     }
 
-  public function handle(): void
+ public function handle(): void
 {
     try {
+
+        Log::info('JOB START', [
+            'mission_id' => $this->missionId
+        ]);
 
         $builder = app(ReportBuilderService::class);
 
         $report = $builder->build($this->missionId);
 
-        if (!$report) return;
+        if (!$report) {
+            Log::error('REPORT NULL', [
+                'mission_id' => $this->missionId
+            ]);
+            return;
+        }
+
+        Log::info('REPORT OK');
 
         $pdf = Pdf::loadView('pdf.report', [
             'report' => $report
@@ -41,17 +52,24 @@ class GeneratePdfJob implements ShouldQueue
 
         $fileName = 'pdfs/mission_' . $this->missionId . '_' . Str::uuid() . '.pdf';
 
-        // Sauvegarde fichier
         Storage::disk('public')->put($fileName, $pdf->output());
 
-        // Sauvegarde chemin en DB
+        Log::info('PDF SAVED', [
+            'file' => $fileName
+        ]);
+
         $mission = Mission::find($this->missionId);
 
-        if ($mission) {
-            $mission->update([
-                'pdf_path' => $fileName
-            ]);
+        if (!$mission) {
+            Log::error('MISSION NOT FOUND IN JOB');
+            return;
         }
+
+        $mission->update([
+            'pdf_path' => $fileName
+        ]);
+
+        Log::info('PDF PATH SAVED');
 
     } catch (\Exception $e) {
 

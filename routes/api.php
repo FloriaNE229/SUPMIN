@@ -12,7 +12,7 @@ Route::prefix('v1')->group(function () {
         require __DIR__ . '/v1/mission.php';
         require __DIR__ . '/v1/notification.php';
         require __DIR__ . '/v1/dashboard.php';
-        require __DIR__ . '/v1/form.php';
+        require __DIR__ . '/v1/othersPaths.php';
     });
 
 });

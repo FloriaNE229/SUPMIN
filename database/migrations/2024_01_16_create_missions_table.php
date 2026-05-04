@@ -6,32 +6,56 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('missions', function (Blueprint $table) {
-    $table->uuid('id')->primary();
 
-    $table->foreignUuid('entity_id')->constrained()->cascadeOnDelete();
-    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            //  UUID PK
+            $table->uuid('id')->primary();
 
-    $table->string('title');
-    $table->text('description')->nullable();
+            //  référence métier
+            $table->string('reference', 50)->unique();
 
-    $table->date('start_date')->nullable();
-    $table->date('end_date')->nullable();
+            //  entité (UUID)
+            $table->uuid('entite_id');
 
-    $table->string('status');
+            $table->foreign('entite_id')
+                ->references('id')
+                ->on('entites')
+                ->cascadeOnDelete();
 
-    $table->timestamps();
-});
+            //  coordinateur (USER → BIGINT)
+            $table->foreignId('coordinateur_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
+
+            //  objectif
+            $table->text('objectif');
+
+            //  axes (JSON MySQL)
+            $table->json('axes_prioritaires')->nullable();
+
+            //  dates
+            $table->date('date_debut');
+            $table->date('date_fin_prevue');
+            $table->date('date_fin_effective')->nullable();
+
+            // statut (sans accent)
+            $table->enum('statut', [
+                'planifiee',
+                'en_cours',
+                'suspendue',
+                'cloturee'
+            ])->default('planifiee');
+
+            //  année
+            $table->smallInteger('annee_supervision');
+
+            // timestamps Laravel
+            $table->timestamps();
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('missions');

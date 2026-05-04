@@ -6,37 +6,61 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-       Schema::create('questions', function (Blueprint $table) {
-    $table->uuid('id')->primary();
+        Schema::create('questions', function (Blueprint $table) {
 
-    $table->uuid('section_id');
+            //  UUID
+            $table->uuid('id')->primary();
 
-    $table->string('label');
-    $table->string('type'); // text, number, select, checkbox, image, date
+            //  section
+            $table->uuid('section_id');
 
-    $table->boolean('required')->default(false);
+            $table->foreign('section_id')
+                ->references('id')
+                ->on('sections_formulaire')
+                ->cascadeOnDelete();
 
-    $table->json('options')->nullable(); // pour select, checkbox
+            //  contenu
+            $table->text('libelle');
+            $table->text('description_aide')->nullable();
 
-    $table->integer('order')->default(0);
+            //  type
+            $table->enum('type_question', [
+                'texte_court',
+                'texte_long',
+                'choix_unique',
+                'choix_multiple',
+                'liste',
+                'note',
+                'date',
+                'fichier',
+                'tableau'
+            ]);
 
-    $table->timestamps();
+            //  options (choix)
+            $table->json('options')->nullable();
 
-    $table->foreign('section_id')
-        ->references('id')
-        ->on('sections')
-        ->cascadeOnDelete();
-});
+            //  obligatoire
+            $table->boolean('est_obligatoire')->default(true);
+
+            //  logique conditionnelle
+            $table->json('condition_affichage')->nullable();
+
+            //  ordre
+            $table->smallInteger('ordre');
+
+            //  validation dynamique
+            $table->json('validation_regles')->nullable();
+
+            //  anti doublon ordre
+            $table->unique(['section_id', 'ordre']);
+
+            // timestamps
+            $table->timestamps();
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('questions');

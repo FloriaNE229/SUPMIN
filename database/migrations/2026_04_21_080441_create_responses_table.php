@@ -9,30 +9,53 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('responses', function (Blueprint $table) {
-    $table->uuid('id')->primary();
 
-    // UUID OK
-    $table->uuid('mission_id');
-    $table->uuid('question_id');
+            //  UUID
+            $table->uuid('id')->primary();
 
-    // ✅ CORRECTION ICI (BIGINT)
-    $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            //  question
+            $table->uuid('question_id');
+            $table->foreign('question_id')
+                ->references('id')
+                ->on('questions')
+                ->cascadeOnDelete();
 
-    // FK UUID manuelles
-    $table->foreign('mission_id')
-        ->references('id')
-        ->on('missions')
-        ->cascadeOnDelete();
+            //  mission
+            $table->uuid('mission_id');
+            $table->foreign('mission_id')
+                ->references('id')
+                ->on('missions')
+                ->cascadeOnDelete();
 
-    $table->foreign('question_id')
-        ->references('id')
-        ->on('questions')
-        ->cascadeOnDelete();
+            //  agent (USER → BIGINT)
+            $table->foreignId('agent_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
 
-    $table->text('answer')->nullable();
+            //  valeurs
+            $table->text('valeur_texte')->nullable();
+            $table->json('valeur_json')->nullable();
 
-    $table->timestamps();
-});
+            //  fichiers
+            $table->json('fichiers_joints')->nullable();
+
+            //  géolocalisation
+            $table->decimal('latitude', 9, 6)->nullable();
+            $table->decimal('longitude', 9, 6)->nullable();
+
+            // ⏱ soumission
+            $table->timestamp('submitted_at');
+
+            //  mode
+            $table->enum('mode_collecte', ['online', 'offline'])
+                ->default('online');
+
+            //  anti doublon (clé métier)
+            $table->unique(['mission_id', 'question_id', 'agent_id']);
+
+            // timestamps Laravel
+            $table->timestamps();
+        });
     }
 
     public function down(): void

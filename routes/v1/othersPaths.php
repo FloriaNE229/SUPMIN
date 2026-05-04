@@ -3,8 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Modules\Form\Controllers\FormController;
 use App\Modules\Form\Controllers\UploadController;
-use App\Jobs\GeneratePdfJob;
 use App\Modules\Report\Services\ReportBuilderService;
+use App\Http\Controllers\ResponseSyncController;
+use App\Modules\Response\Controllers\ResponseController;
+use App\Modules\Recommendation\Controllers\RecommendationController;
 
 // Form endpoints
 Route::post('/forms', [FormController::class, 'store']);
@@ -15,9 +17,9 @@ Route::post('/forms/{id}/duplicate', [FormController::class, 'duplicate']);
 Route::post('/uploads', [UploadController::class, 'store']);
 
 // PDF generation endpoint
-Route::post('/missions/{id}/pdf', function ($id) {
+Route::post('/missions/{mission}/pdf', function (\App\Modules\Mission\Models\Mission $mission) {
 
-    GeneratePdfJob::dispatch($id);
+    \App\Jobs\GeneratePdfJob::dispatch($mission->id);
 
     return response()->json([
         'success' => true,
@@ -42,3 +44,14 @@ Route::get('/missions/{id}/report', function ($id, ReportBuilderService $builder
         'data' => $report
     ]);
 });
+
+// Response sync endpoint
+Route::post('/responses/sync', [ResponseSyncController::class, 'sync']);
+
+
+// Response endpoints
+Route::post('/responses', [ResponseController::class, 'store']);
+
+
+// Recommendation endpoints
+Route::post('/recommendations', [RecommendationController::class, 'store']);
