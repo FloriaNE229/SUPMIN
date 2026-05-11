@@ -15,9 +15,12 @@ return new class extends Migration {
             ->on('missions')
             ->cascadeOnDelete();
 
-        $table->foreignId('user_id')
-            ->constrained()
-            ->cascadeOnDelete();
+        $table->uuid('user_id');
+
+            $table->foreign('user_id')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
             
         $table->string('role')->nullable(); // leader, membre
 

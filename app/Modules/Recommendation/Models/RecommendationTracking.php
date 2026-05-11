@@ -9,20 +9,40 @@ class RecommendationTracking extends Model
 {
     use HasUuid;
 
+    protected $table = 'suivi_recommandations';
+
     protected $fillable = [
-        'recommendation_id',
-        'user_id',
-        'status',
-        'comment',
+        'id',
+        'recommandation_id',
+        'ancien_statut',
+        'nouveau_statut',
+        'commentaire',
+        'preuves_jointes',
+        'updated_by',
+        'created_at'
     ];
+
+    protected $casts = [
+        'preuves_jointes' => 'array',
+        'created_at' => 'datetime'
+    ];
+
+    public $incrementing = false;
+    protected $keyType = 'string';
 
     public function recommendation()
     {
-        return $this->belongsTo(Recommendation::class);
+        return $this->belongsTo(
+            \App\Modules\Recommendation\Models\Recommendation::class,
+            'recommandation_id'
+        );
     }
 
     public function user()
     {
-        return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(
+            \App\Models\User::class,
+            'updated_by'
+        );
     }
 }

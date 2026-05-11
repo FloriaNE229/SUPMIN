@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Modules\Entity\Requests;
+namespace App\Modules\Entities\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreateEntityRequest extends FormRequest
+class UpdateEntityRequest extends FormRequest
 {
     public function rules()
     {
         return [
-            'name' => 'required|string|max:255',
+            'name' => 'sometimes|string|max:255',
             'type' => 'nullable|string|max:100',
             'location' => 'nullable|string|max:255',
         ];

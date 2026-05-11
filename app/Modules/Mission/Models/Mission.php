@@ -12,7 +12,7 @@ class Mission extends Model
     protected $fillable = [
         'id',
         'reference',
-        'entite_id',
+        'entity_id',
         'coordinateur_id',
         'objectif',
         'axes_prioritaires',
@@ -33,12 +33,13 @@ class Mission extends Model
     /**
      *  Entité
      */
-    public function entite()
-    {
-        return $this->belongsTo(
-            \App\Modules\Entite\Models\Entite::class
-        );
-    }
+    public function entity()
+{
+    return $this->belongsTo(
+        \App\Modules\Entities\Models\Entity::class,
+        'entity_id'
+    );
+}
 
     /**
      *  Coordinateur

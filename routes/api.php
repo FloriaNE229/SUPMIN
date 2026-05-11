@@ -8,6 +8,7 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
 
+        
         require __DIR__ . '/v1/entity.php';
         require __DIR__ . '/v1/mission.php';
         require __DIR__ . '/v1/notification.php';

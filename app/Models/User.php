@@ -5,10 +5,14 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+use App\Modules\Shared\Traits\HasUuid;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, Notifiable, HasRoles, HasUuid;
+
+    protected string $guard_name = 'sanctum';
 
     protected $fillable = [
         'nom',
@@ -24,32 +28,37 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    /**
-     *  Auth password 
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | UUID
+    |--------------------------------------------------------------------------
+    */
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    /*
+    |--------------------------------------------------------------------------
+    | AUTH PASSWORD
+    |--------------------------------------------------------------------------
+    */
+
     public function getAuthPassword()
     {
         return $this->mot_de_passe_hash;
     }
 
-    /**
-     *  Missions
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | MISSIONS
+    |--------------------------------------------------------------------------
+    */
+
     public function missions()
     {
         return $this->belongsToMany(
             \App\Modules\Mission\Models\Mission::class
         );
-    }
-
-    /**
-     *  Roles (pivot user_roles)
-     */
-    public function roles()
-    {
-        return $this->belongsToMany(
-            \App\Modules\Role\Models\Role::class,
-            'user_roles'
-        )->withPivot(['date_attribution', 'attribue_par']);
     }
 }

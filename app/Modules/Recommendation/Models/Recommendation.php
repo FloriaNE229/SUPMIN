@@ -29,22 +29,41 @@ class Recommendation extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $casts = [
-        'due_date' => 'date',
-    ];
-
     public function mission()
-{
-    return $this->belongsTo(\App\Modules\Mission\Models\Mission::class);
-}
+    {
+        return $this->belongsTo(
+            \App\Modules\Mission\Models\Mission::class
+        );
+    }
 
-public function question()
-{
-    return $this->belongsTo(\App\Modules\Form\Models\Question::class);
-}
+    public function question()
+    {
+        return $this->belongsTo(
+            \App\Modules\Form\Models\Question::class
+        );
+    }
 
-public function responsable()
-{
-    return $this->belongsTo(\App\Models\User::class, 'responsable_id');
-}
+    public function responsable()
+    {
+        return $this->belongsTo(
+            \App\Models\User::class,
+            'responsable_id'
+        );
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(
+            self::class,
+            'recommandation_parente_id'
+        );
+    }
+
+    public function enfants()
+    {
+        return $this->hasMany(
+            self::class,
+            'recommandation_parente_id'
+        );
+    }
 }

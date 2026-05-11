@@ -1,31 +1,31 @@
 <?php
 
-namespace App\Modules\Role\Models;
+namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Role as SpatieRole;
+use Illuminate\Support\Str;
 
-class Role extends Model
+class Role extends SpatieRole
 {
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $fillable = [
         'id',
+        'name',
+        'guard_name',
         'code',
         'libelle',
         'description',
         'permissions'
     ];
 
-    protected $casts = [
-        'permissions' => 'array'
-    ];
-
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    public function users()
-{
-    return $this->belongsToMany(
-        \App\Models\User::class,
-        'user_roles'
-    );
-}
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (!$model->id) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
 }

@@ -1,11 +1,16 @@
 <?php
 
-namespace App\Modules\Entite\Models;
+namespace App\Modules\Entities\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Modules\Shared\Traits\HasUuid;
 
-class Entite extends Model
+class Entity extends Model
 {
+    use HasUuid;
+
+    protected $table = 'entites';
+
     protected $fillable = [
         'id',
         'code',
@@ -47,8 +52,14 @@ class Entite extends Model
         return $this->belongsTo(self::class, 'entite_parente_id');
     }
 
+     /**
+     * Missions liées
+     */
     public function missions()
     {
-        return $this->hasMany(\App\Modules\Mission\Models\Mission::class);
+        return $this->hasMany(
+            \App\Modules\Mission\Models\Mission::class,
+            'entity_id'
+        );
     }
 }

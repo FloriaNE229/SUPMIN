@@ -6,79 +6,169 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-    Schema::create('recommendations', function (Blueprint $table) {
+        Schema::create('recommandations', function (Blueprint $table) {
 
-     // 🔥 supprimer si existe
-        if (Schema::hasColumn('recommendations', 'reference')) {
-            $table->dropColumn('reference');
-        }
-    });
+            /*
+            |--------------------------------------------------------------------------
+            | UUID PK
+            |--------------------------------------------------------------------------
+            */
 
-    Schema::table('recommendations', function (Blueprint $table) {
-        // 🔥 recréer propre
-        $table->string('reference', 50)->unique()->after('question_id');
-    
+            $table->uuid('id')->primary();
 
-    $table->uuid('id')->primary();
+            /*
+            |--------------------------------------------------------------------------
+            | MISSION
+            |--------------------------------------------------------------------------
+            */
 
-    // relations
-    $table->uuid('mission_id');
-    $table->uuid('question_id')->nullable();
+            $table->uuid('mission_id');
 
-    $table->foreignId('responsable_id')->constrained('users')->cascadeOnDelete();
-    $table->foreignId('creee_par')->constrained('users')->cascadeOnDelete();
-    $table->foreignId('validee_par')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreign('mission_id')
+                ->references('id')
+                ->on('missions')
+                ->cascadeOnDelete();
 
-    //  contenu
-    $table->string('reference', 50)->unique();
-    $table->string('reference', 50)->unique()->after('question_id');
-    $table->string('intitule');
-    $table->text('description');
+            /*
+            |--------------------------------------------------------------------------
+            | QUESTION
+            |--------------------------------------------------------------------------
+            */
 
-    //  enums
-    $table->enum('priorite', ['critique', 'majeur', 'mineur']);
+            $table->uuid('question_id')
+                ->nullable();
 
-    $table->date('delai_realisation');
+            $table->foreign('question_id')
+                ->references('id')
+                ->on('questions')
+                ->nullOnDelete();
 
-    $table->enum('statut', [
-        'formulee',
-        'transmise',
-        'en_cours',
-        'mise_en_oeuvre',
-        'cloturee',
-        'reportee',
-        'non_mise_en_oeuvre'
-    ])->default('formulee');
+            /*
+            |--------------------------------------------------------------------------
+            | REFERENCE
+            |--------------------------------------------------------------------------
+            */
 
-    $table->smallInteger('nb_reports')->default(0);
+            $table->string('reference', 50)
+                ->unique();
 
-    //  self relation
-    $table->uuid('recommandation_parente_id')->nullable();
+            /*
+            |--------------------------------------------------------------------------
+            | CONTENU
+            |--------------------------------------------------------------------------
+            */
 
-    $table->timestamps();
+            $table->string('intitule');
 
-    //  FK
-    $table->foreign('mission_id')->references('id')->on('missions')->cascadeOnDelete();
-    $table->foreign('question_id')->references('id')->on('questions')->nullOnDelete();
-    $table->foreign('recommandation_parente_id')
-        ->references('id')->on('recommendations')
-        ->nullOnDelete();
-});
+            $table->text('description');
+
+            /*
+            |--------------------------------------------------------------------------
+            | PRIORITE
+            |--------------------------------------------------------------------------
+            */
+
+            $table->enum('priorite', [
+                'critique',
+                'majeur',
+                'mineur'
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESPONSABLE (UUID FK)
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('responsable_id');
+
+            $table->foreign('responsable_id')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | DELAI
+            |--------------------------------------------------------------------------
+            */
+
+            $table->date('delai_realisation');
+
+            /*
+            |--------------------------------------------------------------------------
+            | STATUT
+            |--------------------------------------------------------------------------
+            */
+
+            $table->enum('statut', [
+                'formulee',
+                'transmise',
+                'en_cours',
+                'mise_en_oeuvre',
+                'cloturee',
+                'reportee',
+                'non_mise_en_oeuvre'
+            ])->default('formulee');
+
+            /*
+            |--------------------------------------------------------------------------
+            | SUIVI
+            |--------------------------------------------------------------------------
+            */
+
+            $table->smallInteger('nb_reports')
+                ->default(0);
+
+            /*
+            |--------------------------------------------------------------------------
+            | AUTO-REFERENCE
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('recommandation_parente_id')
+                ->nullable();
+
+            $table->foreign('recommandation_parente_id')
+                ->references('id')
+                ->on('recommandations')
+                ->nullOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | AUDIT
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('creee_par');
+
+            $table->foreign('creee_par')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            $table->uuid('validee_par')
+                ->nullable();
+
+            $table->foreign('validee_par')
+                ->references('id')
+                ->on('users')
+                ->nullOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | TIMESTAMPS
+            |--------------------------------------------------------------------------
+            */
+
+            $table->timestamps();
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('recommendations');
-        Schema::table('recommendations', function (Blueprint $table) {
-        $table->dropColumn('reference');
-    });
+        Schema::dropIfExists('recommandations');
     }
 };

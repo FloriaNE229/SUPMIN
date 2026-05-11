@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Modules\Mission\Models\Mission;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -9,18 +10,22 @@ class MissionCreatedNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(public $mission) {}
+    public function __construct(public Mission $mission)
+    {
+    }
 
-    public function via($notifiable)
+    public function via(object $notifiable): array
     {
         return ['database'];
     }
 
-    public function toArray($notifiable)
+    public function toDatabase(object $notifiable): array
     {
         return [
-            'message' => 'Une nouvelle mission a été créée',
+            'type' => 'mission_created',
             'mission_id' => $this->mission->id,
+            'reference' => $this->mission->reference,
+            'message' => 'Une nouvelle mission a été créée.',
         ];
     }
 }

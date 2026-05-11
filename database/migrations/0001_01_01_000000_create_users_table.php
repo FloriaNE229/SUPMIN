@@ -11,59 +11,138 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // USERS
-        Schema::create('users', function (Blueprint $table) {
-            $table->id(); 
+        /*
+        |--------------------------------------------------------------------------
+        | USERS
+        |--------------------------------------------------------------------------
+        */
 
-            // Informations personnelles
+        Schema::create('users', function (Blueprint $table) {
+
+            // UUID
+            $table->uuid('id')->primary();
+
+            /*
+            |--------------------------------------------------------------------------
+            | INFORMATIONS PERSONNELLES
+            |--------------------------------------------------------------------------
+            */
+
             $table->string('nom', 100);
+
             $table->string('prenom', 100);
 
-            // Authentification
+            /*
+            |--------------------------------------------------------------------------
+            | AUTHENTIFICATION
+            |--------------------------------------------------------------------------
+            */
+
             $table->string('email')->unique();
+
             $table->timestamp('email_verified_at')->nullable();
+
             $table->string('mot_de_passe_hash');
 
-            // Contact
+            /*
+            |--------------------------------------------------------------------------
+            | CONTACT
+            |--------------------------------------------------------------------------
+            */
+
             $table->string('telephone', 20)->nullable();
 
-            // Statut compte
+            /*
+            |--------------------------------------------------------------------------
+            | STATUT
+            |--------------------------------------------------------------------------
+            */
+
             $table->enum('statut', [
                 'actif',
                 'suspendu',
                 'desactive'
             ])->default('actif');
 
-            // Sécurité
-            $table->timestamp('date_derniere_connexion')->nullable();
-            $table->smallInteger('tentatives_echec')->default(0);
+            /*
+            |--------------------------------------------------------------------------
+            | SECURITE
+            |--------------------------------------------------------------------------
+            */
 
-            // Laravel
+            $table->timestamp('date_derniere_connexion')
+                ->nullable();
+
+            $table->smallInteger('tentatives_echec')
+                ->default(0);
+
+            /*
+            |--------------------------------------------------------------------------
+            | LARAVEL
+            |--------------------------------------------------------------------------
+            */
+
             $table->rememberToken();
+
             $table->timestamps();
         });
 
-        // PASSWORD RESET TOKENS
+        /*
+        |--------------------------------------------------------------------------
+        | PASSWORD RESET TOKENS
+        |--------------------------------------------------------------------------
+        */
+
         Schema::create('password_reset_tokens', function (Blueprint $table) {
+
             $table->string('email')->primary();
+
             $table->string('token');
+
             $table->timestamp('created_at')->nullable();
         });
 
-        // SESSIONS
+        /*
+        |--------------------------------------------------------------------------
+        | SESSIONS
+        |--------------------------------------------------------------------------
+        */
+
         Schema::create('sessions', function (Blueprint $table) {
+
             $table->string('id')->primary();
 
-            $table->foreignId('user_id')
+            /*
+            |--------------------------------------------------------------------------
+            | USER UUID FK
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('user_id')
                 ->nullable()
-                ->index()
-                ->constrained('users')
+                ->index();
+
+            $table->foreign('user_id')
+                ->references('id')
+                ->on('users')
                 ->nullOnDelete();
 
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
+            /*
+            |--------------------------------------------------------------------------
+            | SESSION DATA
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('ip_address', 45)
+                ->nullable();
+
+            $table->text('user_agent')
+                ->nullable();
+
             $table->longText('payload');
-            $table->integer('last_activity')->index();
+
+            $table->integer('last_activity')
+                ->index();
         });
     }
 
@@ -73,7 +152,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('sessions');
+
         Schema::dropIfExists('password_reset_tokens');
+
         Schema::dropIfExists('users');
     }
 };

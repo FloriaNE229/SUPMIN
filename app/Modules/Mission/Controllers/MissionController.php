@@ -10,12 +10,19 @@ use App\Modules\Mission\Requests\UpdateMissionRequest;
 
 class MissionController extends Controller
 {
-    public function __construct(private MissionService $service) {}
+    public function __construct(
+        private MissionService $service
+    ) {}
 
-    // 🔹 GET /missions
+    /**
+     * GET /missions
+     */
     public function index()
     {
-        $missions = Mission::with(['entity', 'user'])->latest()->get();
+        $missions = Mission::with([
+            'entite',
+            'coordinateur'
+        ])->latest()->get();
 
         return response()->json([
             'success' => true,
@@ -25,7 +32,9 @@ class MissionController extends Controller
         ]);
     }
 
-    // 🔹 POST /missions
+    /**
+     * POST /missions
+     */
     public function store(CreateMissionRequest $request)
     {
         $mission = $this->service->create(
@@ -41,9 +50,13 @@ class MissionController extends Controller
         ], 201);
     }
 
-    // 🔹 PUT /missions/{id}
-    public function update(UpdateMissionRequest $request, Mission $mission)
-    {
+    /**
+     * PUT /missions/{id}
+     */
+    public function update(
+        UpdateMissionRequest $request,
+        Mission $mission
+    ) {
         $mission = $this->service->update(
             $mission,
             $request->validated(),
@@ -58,25 +71,28 @@ class MissionController extends Controller
         ]);
     }
 
-   // 🔹 GET /missions/{id}/pdf 
-   public function pdf(Mission $mission)
-{
-    if (!$mission->pdf_path) {
+    /**
+     * GET /missions/{id}/pdf
+     */
+    public function pdf(Mission $mission)
+    {
+        if (!$mission->pdf_path) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun PDF disponible'
+            ], 404);
+        }
+
+        $url = asset('storage/' . $mission->pdf_path);
+
         return response()->json([
-            'success' => false,
-            'message' => 'Aucun PDF disponible'
-        ], 404);
+            'success' => true,
+            'data' => [
+                'url' => $url
+            ],
+            'message' => 'PDF disponible',
+            'errors' => null
+        ]);
     }
-
-    $url = asset('storage/' . $mission->pdf_path);
-
-    return response()->json([
-        'success' => true,
-        'data' => [
-            'url' => $url
-        ],
-        'message' => 'PDF disponible',
-        'errors' => null
-    ]);
-}
 }

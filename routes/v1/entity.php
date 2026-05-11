@@ -1,15 +1,48 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Modules\Entity\Controllers\EntityController;
+use App\Modules\Entities\Controllers\EntityController;
 
-Route::get('/entities', [EntityController::class, 'index']);
+/*
+|--------------------------------------------------------------------------
+| ENTITIES
+|--------------------------------------------------------------------------
+*/
 
-Route::post('/entities', [EntityController::class, 'store'])
-    ->middleware('role:admin');
+Route::prefix('entities')->group(function () {
 
-Route::put('/entities/{entity}', [EntityController::class, 'update'])
-    ->middleware('role:admin');
+    /*
+    |--------------------------------------------------------------------------
+    | LISTE
+    |--------------------------------------------------------------------------
+    */
 
-Route::delete('/entities/{entity}', [EntityController::class, 'destroy'])
-    ->middleware('role:admin');
+    Route::get('/', [EntityController::class, 'index']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post('/', [EntityController::class, 'store'])
+        ->middleware('role:admin');
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE
+    |--------------------------------------------------------------------------
+    */
+
+    Route::put('/{entity}', [EntityController::class, 'update'])
+        ->middleware('role:admin');
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE
+    |--------------------------------------------------------------------------
+    */
+
+    Route::delete('/{entity}', [EntityController::class, 'destroy'])
+        ->middleware('role:admin');
+});

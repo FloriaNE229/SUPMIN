@@ -3,124 +3,112 @@
 namespace App\Modules\Auth\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Auth\Requests\LoginRequest;
-use App\Modules\Auth\Requests\RegisterRequest;
-use App\Modules\Auth\Requests\ResetPasswordRequest;
-use App\Modules\Auth\Services\AuthService;
 use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function __construct(private AuthService $service) {}
-
     /**
-     * Register a new user
+     * REGISTER
      */
-    public function register(RegisterRequest $request)
+    public function register(Request $request)
     {
-        $result = $this->service->register($request->validated());
+        $request->validate([
+            'nom' => 'required|string',
+            'prenom' => 'required|string',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:6'
+        ]);
+
+        $user = User::create([
+            'nom' => $request->nom,
+            'prenom' => $request->prenom,
+            'email' => $request->email,
+            'mot_de_passe_hash' => Hash::make($request->password),
+            'statut' => 'actif'
+        ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
-            'data' => $result,
-            'message' => 'Utilisateur créé',
-            'errors' => null,
-            'meta' => []
-        ], 201);
-    }
-
-    /**
-     * Login user
-     */
-    public function login(LoginRequest $request)
-    {
-        $result = $this->service->login($request->validated());
-
-        if (!$result) {
-            return response()->json([
-                'success' => false,
-                'data' => null,
-                'message' => 'Identifiants invalides',
-                'errors' => ['auth' => 'Unauthorized'],
-                'meta' => []
-            ], 401);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $result,
-            'message' => 'Connexion réussie',
-            'errors' => null,
-            'meta' => []
+            'token' => $token,
+            'user' => $user
         ]);
     }
 
     /**
-     * Logout user
+     * LOGIN
+     */
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->mot_de_passe_hash)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Identifiants invalides'
+            ], 401);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'token' => $token,
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * LOGOUT
      */
     public function logout(Request $request)
     {
-        $user = $request->user();
-
-        // Protection contre null → évite erreur 500
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'data' => null,
-                'message' => 'Non authentifié',
-                'errors' => ['auth' => 'Unauthorized'],
-                'meta' => []
-            ], 401);
-        }
-
-        $this->service->logout($user);
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json([
             'success' => true,
-            'data' => null,
-            'message' => 'Déconnexion réussie',
-            'errors' => null,
-            'meta' => []
+            'message' => 'Déconnecté'
         ]);
     }
 
     /**
-     * Get authenticated user
+     * ME
      */
     public function me(Request $request)
     {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'data' => null,
-                'message' => 'Non authentifié',
-                'errors' => ['auth' => 'Unauthorized'],
-                'meta' => []
-            ], 401);
-        }
-
         return response()->json([
             'success' => true,
-            'data' => $user,
-            'message' => 'Utilisateur connecté',
-            'errors' => null,
-            'meta' => []
+            'user' => $request->user()
         ]);
     }
 
     /**
-     * Reset password (MVP simplifié)
+     * RESET PASSWORD (simple version)
      */
-    public function resetPassword(ResetPasswordRequest $request)
+    public function resetPassword(Request $request)
     {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'password' => 'required|min:6'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        $user->update([
+            'mot_de_passe_hash' => Hash::make($request->password)
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => null,
-            'message' => 'Lien de réinitialisation envoyé',
-            'errors' => null,
-            'meta' => []
+            'message' => 'Mot de passe réinitialisé'
         ]);
     }
 }

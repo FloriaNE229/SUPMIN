@@ -6,21 +6,32 @@ use Illuminate\Support\Str;
 
 trait HasUuid
 {
-    protected static function bootHasUuid()
+    /**
+     * Boot trait
+     */
+    public static function bootHasUuid(): void
     {
-        static::creating(function ($model) {
+        static::creating(function ($model): void {
+
             if (empty($model->id)) {
                 $model->id = (string) Str::uuid();
             }
+
         });
     }
 
-    public function getIncrementing()
+    /**
+     * Disable auto increment
+     */
+    public function getIncrementing(): bool
     {
         return false;
     }
 
-    public function getKeyType()
+    /**
+     * UUID key type
+     */
+    public function getKeyType(): string
     {
         return 'string';
     }

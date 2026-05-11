@@ -3,62 +3,54 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
-// Notifications
-Route::get('/notifications', function (Request $request) {
-    return response()->json([
-        'success' => true,
-        'data' => $request->user()->notifications,
-        'message' => 'Liste des notifications',
-        'errors' => null
-    ]);
-});
+Route::prefix('notifications')->group(function () {
 
- // Notifications non lues
-Route::get('/notifications/unread', function (Request $request) {
-    return response()->json([
-        'success' => true,
-        'data' => $request->user()->unreadNotifications,
-        'message' => 'Notifications non lues',
-        'errors' => null
-    ]);
-});
-
-// Marquer une notification comme lue
-Route::post('/notifications/{id}/read', function (Request $request, $id) {
-
-    $notification = $request->user()
-        ->notifications()
-        ->where('id', $id)
-        ->first();
-
-    if (!$notification) {
+    // Liste des notifications
+    Route::get('/', function (Request $request) {
         return response()->json([
-            'success' => false,
-            'data' => null,
-            'message' => 'Notification introuvable',
+            'success' => true,
+            'data' => $request->user()->notifications,
+            'message' => 'Liste des notifications',
             'errors' => null
-        ], 404);
-    }
+        ]);
+    });
 
-    $notification->markAsRead();
+    // Notifications non lues
+    Route::get('/unread', function (Request $request) {
+        return response()->json([
+            'success' => true,
+            'data' => $request->user()->unreadNotifications,
+            'message' => 'Notifications non lues',
+            'errors' => null
+        ]);
+    });
 
-    return response()->json([
-        'success' => true,
-        'data' => null,
-        'message' => 'Notification marquée comme lue',
-        'errors' => null
-    ]);
-});
+    // Marquer une notification comme lue
+    Route::post('/{id}/read', function (Request $request, string $id) {
+        $notification = $request->user()
+            ->notifications()
+            ->where('id', $id)
+            ->firstOrFail();
 
- // Tout marquer comme lu
-Route::post('/notifications/read-all', function (Request $request) {
+        $notification->markAsRead();
 
-    $request->user()->unreadNotifications->markAsRead();
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification marquée comme lue',
+            'errors' => null
+        ]);
+    });
 
-    return response()->json([
-        'success' => true,
-        'data' => null,
-        'message' => 'Toutes les notifications sont marquées comme lues',
-        'errors' => null
-    ]);
+    // Tout marquer comme lu
+    Route::post('/read-all', function (Request $request) {
+        $request->user()
+            ->unreadNotifications
+            ->markAsRead();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Toutes les notifications ont été marquées comme lues',
+            'errors' => null
+        ]);
+    });
 });

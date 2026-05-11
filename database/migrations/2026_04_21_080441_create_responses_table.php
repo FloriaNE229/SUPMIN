@@ -28,8 +28,10 @@ return new class extends Migration
                 ->cascadeOnDelete();
 
             //  agent (USER → BIGINT)
-            $table->foreignId('agent_id')
-                ->constrained('users')
+            $table->uuid('agent_id');
+            $table->foreign('agent_id')
+                ->references('id')
+                ->on('users')
                 ->cascadeOnDelete();
 
             //  valeurs

@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->foreign('formulaire_id')
                 ->references('id')
-                ->on('formulaires')
+                ->on('forms')
                 ->cascadeOnDelete();
 
             //  contenu

@@ -10,37 +10,85 @@ return new class extends Migration
     {
         Schema::create('missions', function (Blueprint $table) {
 
-            //  UUID PK
+            /*
+            |--------------------------------------------------------------------------
+            | UUID PK
+            |--------------------------------------------------------------------------
+            */
+
             $table->uuid('id')->primary();
 
-            //  référence métier
-            $table->string('reference', 50)->unique();
+            /*
+            |--------------------------------------------------------------------------
+            | REFERENCE METIER
+            |--------------------------------------------------------------------------
+            */
 
-            //  entité (UUID)
-            $table->uuid('entite_id');
+            $table->string('reference', 50)
+                ->unique();
 
-            $table->foreign('entite_id')
+            /*
+            |--------------------------------------------------------------------------
+            | ENTITE (UUID FK)
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('entity_id');
+
+            $table->foreign('entity_id')
                 ->references('id')
                 ->on('entites')
                 ->cascadeOnDelete();
 
-            //  coordinateur (USER → BIGINT)
-            $table->foreignId('coordinateur_id')
-                ->constrained('users')
+            /*
+            |--------------------------------------------------------------------------
+            | COORDINATEUR (UUID FK → users.id)
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('coordinateur_id');
+
+            $table->foreign('coordinateur_id')
+                ->references('id')
+                ->on('users')
                 ->cascadeOnDelete();
 
-            //  objectif
+            /*
+            |--------------------------------------------------------------------------
+            | OBJECTIF
+            |--------------------------------------------------------------------------
+            */
+
             $table->text('objectif');
 
-            //  axes (JSON MySQL)
-            $table->json('axes_prioritaires')->nullable();
+            /*
+            |--------------------------------------------------------------------------
+            | AXES PRIORITAIRES
+            |--------------------------------------------------------------------------
+            */
 
-            //  dates
+            $table->json('axes_prioritaires')
+                ->nullable();
+
+            /*
+            |--------------------------------------------------------------------------
+            | DATES
+            |--------------------------------------------------------------------------
+            */
+
             $table->date('date_debut');
-            $table->date('date_fin_prevue');
-            $table->date('date_fin_effective')->nullable();
 
-            // statut (sans accent)
+            $table->date('date_fin_prevue');
+
+            $table->date('date_fin_effective')
+                ->nullable();
+
+            /*
+            |--------------------------------------------------------------------------
+            | STATUT
+            |--------------------------------------------------------------------------
+            */
+
             $table->enum('statut', [
                 'planifiee',
                 'en_cours',
@@ -48,10 +96,20 @@ return new class extends Migration
                 'cloturee'
             ])->default('planifiee');
 
-            //  année
+            /*
+            |--------------------------------------------------------------------------
+            | ANNEE SUPERVISION
+            |--------------------------------------------------------------------------
+            */
+
             $table->smallInteger('annee_supervision');
 
-            // timestamps Laravel
+            /*
+            |--------------------------------------------------------------------------
+            | TIMESTAMPS
+            |--------------------------------------------------------------------------
+            */
+
             $table->timestamps();
         });
     }

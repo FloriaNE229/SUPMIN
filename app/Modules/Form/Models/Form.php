@@ -9,7 +9,7 @@ class Form extends Model
 {
     use HasUuid;
 
-    protected $table = 'formulaires';
+    protected $table = 'forms';
 
     protected $fillable = [
         'id',

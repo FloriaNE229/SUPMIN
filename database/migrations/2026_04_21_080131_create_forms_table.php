@@ -39,8 +39,11 @@ return new class extends Migration
             ])->default('brouillon');
 
             //  créateur (BIGINT)
-            $table->foreignId('cree_par')
-                ->constrained('users')
+            $table->uuid('user_id');
+
+            $table->foreign('user_id')
+            ->references('id')
+            ->on('users')
                 ->cascadeOnDelete();
 
             // timestamps
