@@ -7,88 +7,181 @@ use Illuminate\Validation\ValidationException;
 class FormSchemaService
 {
     private array $allowedTypes = [
-        'text',
-        'number',
-        'select',
-        'checkbox',
-        'image',
-        'date'
+        'text',       // texte court
+        'textarea',   // texte long
+        'radio',      // choix unique
+        'checkbox',   // choix multiple
+        'select',     // liste déroulante
+        'rating',     // échelle de notation
+        'datetime',   // date/heure
+        'file',       // pièce jointe
+        'table',      // tableau de saisie
     ];
 
+    /**
+    
+     *
+     * @throws ValidationException
+     */
     public function validate(array $data): void
     {
-        //  sections obligatoires
-        if (!isset($data['sections']) || !is_array($data['sections']) || empty($data['sections'])) {
+        /*
+        |--------------------------------------------------------------------------
+        | Root: sections
+        |--------------------------------------------------------------------------
+        */
+        if (
+            !array_key_exists('sections', $data) ||
+            !is_array($data['sections']) ||
+            empty($data['sections'])
+        ) {
             throw ValidationException::withMessages([
-                'sections' => ['Les sections sont obligatoires et doivent être un tableau non vide']
+                'sections' => [
+                    'Le champ sections est obligatoire et doit être un tableau non vide.',
+                ],
             ]);
         }
 
-        foreach ($data['sections'] as $sIndex => $section) {
+        foreach ($data['sections'] as $sectionIndex => $section) {
 
-            //  title obligatoire
-            if (!isset($section['title']) || trim($section['title']) === '') {
+            /*
+            |--------------------------------------------------------------------------
+            | Section: title
+            |--------------------------------------------------------------------------
+            */
+            if (
+                !array_key_exists('title', $section) ||
+                !is_string($section['title']) ||
+                trim($section['title']) === ''
+            ) {
                 throw ValidationException::withMessages([
-                    "sections.$sIndex.title" => ['Titre de section requis']
+                    "sections.$sectionIndex.title" => [
+                        'Le titre de la section est obligatoire.',
+                    ],
                 ]);
             }
 
-            //  questions obligatoires
-            if (!isset($section['questions']) || !is_array($section['questions']) || empty($section['questions'])) {
+            /*
+            |--------------------------------------------------------------------------
+            | Section: questions
+            |--------------------------------------------------------------------------
+            */
+            if (
+                !array_key_exists('questions', $section) ||
+                !is_array($section['questions']) ||
+                empty($section['questions'])
+            ) {
                 throw ValidationException::withMessages([
-                    "sections.$sIndex.questions" => ['Chaque section doit contenir au moins une question']
+                    "sections.$sectionIndex.questions" => [
+                        'Chaque section doit contenir au moins une question.',
+                    ],
                 ]);
             }
 
-            foreach ($section['questions'] as $qIndex => $question) {
+            foreach ($section['questions'] as $questionIndex => $question) {
 
-                //  label obligatoire
-                if (!isset($question['label']) || trim($question['label']) === '') {
+                /*
+                |--------------------------------------------------------------------------
+                | Question: label
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    !array_key_exists('label', $question) ||
+                    !is_string($question['label']) ||
+                    trim($question['label']) === ''
+                ) {
                     throw ValidationException::withMessages([
-                        "sections.$sIndex.questions.$qIndex.label" => ['Label requis']
+                        "sections.$sectionIndex.questions.$questionIndex.label" => [
+                            'Le label de la question est obligatoire.',
+                        ],
                     ]);
                 }
 
-                //  type obligatoire + autorisé
-                if (!isset($question['type']) || !in_array($question['type'], $this->allowedTypes)) {
+                /*
+                |--------------------------------------------------------------------------
+                | Question: type
+                |--------------------------------------------------------------------------
+                */
+                if (!array_key_exists('type', $question)) {
                     throw ValidationException::withMessages([
-                        "sections.$sIndex.questions.$qIndex.type" => ['Type invalide']
+                        "sections.$sectionIndex.questions.$questionIndex.type" => [
+                            'Le type de la question est obligatoire.',
+                        ],
                     ]);
                 }
 
-                //  required obligatoire (bool)
-                if (!array_key_exists('required', $question) || !is_bool($question['required'])) {
+                if (
+                    !is_string($question['type']) ||
+                    !in_array(
+                        $question['type'],
+                        $this->allowedTypes,
+                        true
+                    )
+                ) {
                     throw ValidationException::withMessages([
-                        "sections.$sIndex.questions.$qIndex.required" => ['Le champ required doit être true ou false']
+                        "sections.$sectionIndex.questions.$questionIndex.type" => [
+                            'Type de question non autorisé.',
+                        ],
                     ]);
                 }
 
-                // VALIDATION SPÉCIFIQUE PAR TYPE
+                /*
+                |--------------------------------------------------------------------------
+                | Question: required
+                |--------------------------------------------------------------------------
+                */
+                if (!array_key_exists('required', $question)) {
+                    throw ValidationException::withMessages([
+                        "sections.$sectionIndex.questions.$questionIndex.required" => [
+                            'Le champ required est obligatoire.',
+                        ],
+                    ]);
+                }
 
-                // SELECT / CHECKBOX → options obligatoires
-                if (in_array($question['type'], ['select', 'checkbox'])) {
+                if (!is_bool($question['required'])) {
+                    throw ValidationException::withMessages([
+                        "sections.$sectionIndex.questions.$questionIndex.required" => [
+                            'Le champ required doit être true ou false.',
+                        ],
+                    ]);
+                }
 
-                    if (!isset($question['options']) || !is_array($question['options']) || empty($question['options'])) {
+                /*
+                |--------------------------------------------------------------------------
+                | Questions à choix : options obligatoires
+                |--------------------------------------------------------------------------
+                */
+                if (
+                    in_array(
+                        $question['type'],
+                        ['radio', 'checkbox', 'select'],
+                        true
+                    )
+                ) {
+                    if (
+                        !array_key_exists('options', $question) ||
+                        !is_array($question['options']) ||
+                        empty($question['options'])
+                    ) {
                         throw ValidationException::withMessages([
-                            "sections.$sIndex.questions.$qIndex.options" => ['Options requises pour ce type']
+                            "sections.$sectionIndex.questions.$questionIndex.options" => [
+                                'Les options sont obligatoires pour ce type de question.',
+                            ],
                         ]);
                     }
 
-                    // chaque option doit être string non vide
-                    foreach ($question['options'] as $optIndex => $option) {
-                        if (!is_string($option) || trim($option) === '') {
+                    foreach ($question['options'] as $optionIndex => $option) {
+                        if (
+                            !is_string($option) ||
+                            trim($option) === ''
+                        ) {
                             throw ValidationException::withMessages([
-                                "sections.$sIndex.questions.$qIndex.options.$optIndex" => ['Option invalide']
+                                "sections.$sectionIndex.questions.$questionIndex.options.$optionIndex" => [
+                                    'Chaque option doit être une chaîne non vide.',
+                                ],
                             ]);
                         }
                     }
-                }
-
-                // IMAGE → aucune option autorisée
-                if ($question['type'] === 'image' && isset($question['options'])) {
-                    throw ValidationException::withMessages([
-                        "sections.$sIndex.questions.$qIndex.options" => ['Options interdites pour image']
-                    ]);
                 }
             }
         }

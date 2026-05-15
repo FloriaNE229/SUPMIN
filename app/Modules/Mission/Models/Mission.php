@@ -9,6 +9,8 @@ class Mission extends Model
 {
     use HasUuid;
 
+    protected $table = 'missions';
+
     protected $fillable = [
         'id',
         'reference',
@@ -20,29 +22,41 @@ class Mission extends Model
         'date_fin_prevue',
         'date_fin_effective',
         'statut',
-        'annee_supervision'
+        'annee_supervision',
+        'pdf_path',
     ];
 
     protected $casts = [
-        'axes_prioritaires' => 'array'
+        'axes_prioritaires' => 'array',
+        'date_debut' => 'date',
+        'date_fin_prevue' => 'date',
+        'date_fin_effective' => 'date',
     ];
 
     public $incrementing = false;
     protected $keyType = 'string';
 
     /**
-     *  Entité
+     * Entité liée à la mission
      */
     public function entity()
-{
-    return $this->belongsTo(
-        \App\Modules\Entities\Models\Entity::class,
-        'entity_id'
-    );
-}
+    {
+        return $this->belongsTo(
+            \App\Modules\Entities\Models\Entity::class,
+            'entity_id'
+        );
+    }
 
     /**
-     *  Coordinateur
+     * Alias pour compatibilité : mission->entite
+     */
+    public function entite()
+    {
+        return $this->entity();
+    }
+
+    /**
+     * Coordinateur de la mission
      */
     public function coordinateur()
     {
@@ -53,49 +67,65 @@ class Mission extends Model
     }
 
     /**
-     *  Forms liés à la mission
+     * Alias pour compatibilité : mission->user
+     */
+    public function user()
+    {
+        return $this->coordinateur();
+    }
+
+    /**
+     * Formulaires liés à la mission
      */
     public function forms()
     {
         return $this->belongsToMany(
             \App\Modules\Form\Models\Form::class,
-            'mission_forms'
+            'mission_forms',
+            'mission_id',
+            'form_id'
         );
     }
 
     /**
-     *  Réponses
+     * Réponses
      */
     public function responses()
     {
         return $this->hasMany(
-            \App\Modules\Response\Models\Response::class
+            \App\Modules\Response\Models\Response::class,
+            'mission_id'
         );
     }
 
     /**
-     *  Recommandations
+     * Recommandations
      */
     public function recommendations()
     {
         return $this->hasMany(
-            \App\Modules\Recommendation\Models\Recommendation::class
+            \App\Modules\Recommendation\Models\Recommendation::class,
+            'mission_id'
         );
     }
 
     /**
-     *  Agents (pivot mission_users)
+     * Agents affectés à la mission
      */
     public function agents()
     {
         return $this->belongsToMany(
             \App\Models\User::class,
-            'mission_users'
-        )->withPivot('role');
+            'mission_user',
+            'mission_id',
+            'user_id'
+        )
+        ->withPivot('role')
+        ->withTimestamps();
     }
 
     /**
-     *  Leader (helper, pas relation)
+     * Leader de la mission
      */
     public function leader()
     {
@@ -104,8 +134,25 @@ class Mission extends Model
             ->first();
     }
 
-public function answers()
-{
-    return $this->hasMany(\App\Modules\Form\Models\Answer::class);
-}
+    /**
+     * Réponses aux formulaires
+     */
+    public function answers()
+    {
+        return $this->hasMany(
+            \App\Modules\Form\Models\Answer::class,
+            'mission_id'
+        );
+    }
+
+    /**
+     * Logs d'audit de la mission
+     */
+    public function logs()
+    {
+        return $this->hasMany(
+            \App\Modules\Mission\Models\MissionLog::class,
+            'mission_id'
+        );
+    }
 }

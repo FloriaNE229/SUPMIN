@@ -9,38 +9,38 @@ class Section extends Model
 {
     use HasUuid;
 
-    protected $table = 'sections_formulaire';
+    protected $table = 'sections';
 
     protected $fillable = [
         'id',
-        'formulaire_id',
-        'titre',
+        'form_id',
+        'title',
         'description',
-        'ordre'
+        'order',
     ];
 
     public $incrementing = false;
     protected $keyType = 'string';
 
     /**
-     * 🔗 Formulaire
+     * La section appartient à un formulaire.
      */
     public function form()
     {
         return $this->belongsTo(
             \App\Modules\Form\Models\Form::class,
-            'formulaire_id'
+            'form_id'
         );
     }
 
     /**
-     * 🔗 Questions
+     * Une section contient plusieurs questions.
      */
     public function questions()
     {
         return $this->hasMany(
-            \App\Modules\Form\Models\Question::class
-        )->orderBy('ordre');
+            \App\Modules\Form\Models\Question::class,
+            'section_id'
+        );
     }
-
 }

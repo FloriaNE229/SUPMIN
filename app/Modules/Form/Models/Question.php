@@ -9,6 +9,8 @@ class Question extends Model
 {
     use HasUuid;
 
+    protected $table = 'questions';
+
     protected $fillable = [
         'id',
         'section_id',
@@ -19,43 +21,27 @@ class Question extends Model
         'est_obligatoire',
         'condition_affichage',
         'ordre',
-        'validation_regles'
+        'validation_regles',
     ];
 
     protected $casts = [
         'options' => 'array',
+        'est_obligatoire' => 'boolean',
         'condition_affichage' => 'array',
-        'validation_regles' => 'array'
+        'validation_regles' => 'array',
     ];
 
     public $incrementing = false;
     protected $keyType = 'string';
 
     /**
-     * Section
+     * La question appartient à une section.
      */
     public function section()
     {
         return $this->belongsTo(
-            \App\Modules\Form\Models\Section::class
+            \App\Modules\Form\Models\Section::class,
+            'section_id'
         );
-    }
-
-    /**
-     * Réponses
-     */
-
-    public function responses()
-    {
-        return $this->hasMany(\App\Modules\Response\Models\Response::class);
-    }
-
-    /**
-     * Answers
-     */
-    
-    public function answers()
-    {
-    return $this->hasMany(\App\Modules\Form\Models\Answer::class);
     }
 }

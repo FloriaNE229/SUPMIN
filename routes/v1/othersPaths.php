@@ -13,8 +13,13 @@ Route::post('/forms', [FormController::class, 'store']);
 Route::get('/forms', [FormController::class, 'index']);
 Route::post('/forms/{id}/duplicate', [FormController::class, 'duplicate']);
 
+
+
 // Upload endpoint
 Route::post('/uploads', [UploadController::class, 'store']);
+
+
+
 
 // PDF generation endpoint
 Route::post('/missions/{mission}/pdf', function (\App\Modules\Mission\Models\Mission $mission) {
@@ -26,6 +31,10 @@ Route::post('/missions/{mission}/pdf', function (\App\Modules\Mission\Models\Mis
         'message' => 'Génération PDF lancée'
     ]);
 });
+
+
+
+
 
 // Report endpoint
 Route::get('/missions/{id}/report', function ($id, ReportBuilderService $builder) {
@@ -44,6 +53,9 @@ Route::get('/missions/{id}/report', function ($id, ReportBuilderService $builder
         'data' => $report
     ]);
 });
+
+
+
 
 // Response sync endpoint
 Route::post('/responses/sync', [ResponseSyncController::class, 'sync']);

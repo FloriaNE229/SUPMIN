@@ -38,6 +38,8 @@ class User extends Authenticatable
 
     protected $keyType = 'string';
 
+    
+
     /*
     |--------------------------------------------------------------------------
     | AUTH PASSWORD
@@ -61,4 +63,21 @@ class User extends Authenticatable
             \App\Modules\Mission\Models\Mission::class
         );
     }
+
+
+
+    /**
+      *  Missions assignées (pivot mission_user)
+      */
+
+    public function assignedMissions()
+{
+    return $this->belongsToMany(
+        \App\Modules\Mission\Models\Mission::class,
+        'mission_user',
+        'user_id',
+        'mission_id'
+    )->withPivot('role')
+     ->withTimestamps();
+}
 }

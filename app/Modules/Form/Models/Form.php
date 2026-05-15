@@ -11,48 +11,71 @@ class Form extends Model
 
     protected $table = 'forms';
 
+    /**
+     * Champs autorisés en mass assignment.
+     */
     protected $fillable = [
         'id',
+        'code',
         'mission_id',
         'titre',
         'description',
+        'schema',
         'est_modele',
         'version',
         'statut',
-        'cree_par'
+        'user_id',
     ];
 
+    /**
+     * Casts automatiques.
+     */
+    protected $casts = [
+        'schema' => 'array',
+        'est_modele' => 'boolean',
+        'version' => 'integer',
+    ];
+
+    /**
+     * UUID non auto-incrémenté.
+     */
     public $incrementing = false;
+
+    /**
+     * Type de clé primaire.
+     */
     protected $keyType = 'string';
 
     /**
-     * Mission
+     * Mission associée (nullable).
      */
     public function mission()
     {
         return $this->belongsTo(
-            \App\Modules\Mission\Models\Mission::class
+            \App\Modules\Mission\Models\Mission::class,
+            'mission_id'
         );
     }
 
     /**
-     * Créateur
+     * Créateur du formulaire.
      */
-    public function creator()
+    public function user()
     {
         return $this->belongsTo(
             \App\Models\User::class,
-            'cree_par'
+            'user_id'
         );
     }
 
     /**
-     * Sections
+     * Un formulaire possède plusieurs sections.
      */
     public function sections()
     {
         return $this->hasMany(
-            \App\Modules\Form\Models\Section::class
+            \App\Modules\Form\Models\Section::class,
+            'form_id'
         );
     }
 }

@@ -10,28 +10,28 @@ return new class extends Migration
     {
         Schema::create('sections', function (Blueprint $table) {
 
-            //  UUID PK
+            // UUID PK
             $table->uuid('id')->primary();
 
-            //  formulaire
-            $table->uuid('formulaire_id');
+            // Formulaire parent
+            $table->uuid('form_id');
 
-            $table->foreign('formulaire_id')
+            $table->foreign('form_id')
                 ->references('id')
                 ->on('forms')
                 ->cascadeOnDelete();
 
-            //  contenu
-            $table->string('titre');
+            // Contenu
+            $table->string('title');
             $table->text('description')->nullable();
 
-            //  ordre affichage
-            $table->smallInteger('ordre');
+            // Ordre d'affichage
+            $table->smallInteger('order')->default(0);
 
-            //  éviter doublon d’ordre dans un même formulaire
-            $table->unique(['formulaire_id', 'ordre']);
+            // Unicité de l'ordre dans un même formulaire
+            $table->unique(['form_id', 'order']);
 
-            // timestamps (recommandé)
+            // Timestamps
             $table->timestamps();
         });
     }
