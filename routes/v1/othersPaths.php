@@ -1,6 +1,4 @@
 <?php
-// routes/v1/othersPaths.php
-// Ce fichier est chargé DANS le middleware auth:sanctum donc pas besoin de le répéter
 
 use Illuminate\Support\Facades\Route;
 use App\Modules\User\Controllers\UserController;
@@ -38,6 +36,11 @@ Route::prefix('users')->middleware('role:admin')->group(function () {
     Route::patch('/{user}/activate', [UserController::class, 'activate']);
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/check-inactive', [UserController::class, 'checkInactive']);
+
+    // === Routes activation compte ===
+    Route::get('/{user}/activation-password', [UserController::class, 'getActivationPassword']);
+    Route::post('/{user}/regenerate-activation', [UserController::class, 'regenerateActivationPassword']);
+    Route::post('/{user}/unblock', [UserController::class, 'unblock']);
 });
 
 /*
@@ -159,3 +162,4 @@ Route::prefix('notifications')->group(function () {
     Route::patch('/read-all', [NotificationController::class, 'markAllRead']);
     Route::delete('/{id}', [NotificationController::class, 'destroy']);
 });
+

@@ -20,12 +20,26 @@ class User extends Authenticatable
         'email',
         'mot_de_passe_hash',
         'telephone',
-        'statut'
+        'statut',
+        'tentatives_echec',
+        'date_derniere_connexion',
+        'compte_active',
+        'mdp_activation',
+        'tentatives_activation',
+        'compte_bloque',
     ];
 
     protected $hidden = [
         'mot_de_passe_hash',
         'remember_token',
+    ];
+
+    protected $casts = [
+        'compte_active'           => 'boolean',
+        'compte_bloque'           => 'boolean',
+        'tentatives_echec'        => 'integer',
+        'tentatives_activation'   => 'integer',
+        'date_derniere_connexion' => 'datetime',
     ];
 
     /*
@@ -35,10 +49,7 @@ class User extends Authenticatable
     */
 
     public $incrementing = false;
-
     protected $keyType = 'string';
-
-    
 
     /*
     |--------------------------------------------------------------------------
@@ -64,20 +75,17 @@ class User extends Authenticatable
         );
     }
 
-
-
     /**
-      *  Missions assignées (pivot mission_user)
-      */
-
+     * Missions assignées (pivot mission_user)
+     */
     public function assignedMissions()
-{
-    return $this->belongsToMany(
-        \App\Modules\Mission\Models\Mission::class,
-        'mission_user',
-        'user_id',
-        'mission_id'
-    )->withPivot('role')
-     ->withTimestamps();
-}
+    {
+        return $this->belongsToMany(
+            \App\Modules\Mission\Models\Mission::class,
+            'mission_user',
+            'user_id',
+            'mission_id'
+        )->withPivot('role')
+         ->withTimestamps();
+    }
 }

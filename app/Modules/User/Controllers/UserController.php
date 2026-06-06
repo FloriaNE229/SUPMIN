@@ -11,6 +11,14 @@ use Illuminate\Support\Str;
 class UserController extends Controller
 {
     /**
+     * Génère un mot de passe d'activation unique
+     */
+    private function generateActivationPassword(): string
+    {
+        return 'Supmin#' . strtoupper(Str::random(7));
+    }
+
+    /**
      * GET /users — Liste tous les utilisateurs
      */
     public function index(Request $request)
@@ -39,16 +47,19 @@ class UserController extends Controller
         $users = $query->latest()->get()->map(function ($user) {
             $role = $user->roles->first();
             return [
-                'id'        => $user->id,
-                'nom'       => $user->nom,
-                'prenom'    => $user->prenom,
-                'email'     => $user->email,
-                'telephone' => $user->telephone,
-                'statut'    => $user->statut,
-                'role'      => $role ? $role->libelle : null,
-                'role_code' => $role ? $role->name : null,
-                'twofa'     => false,
-                'created_at'=> $user->created_at,
+                'id'                    => $user->id,
+                'nom'                   => $user->nom,
+                'prenom'                => $user->prenom,
+                'email'                 => $user->email,
+                'telephone'             => $user->telephone,
+                'statut'                => $user->statut,
+                'role'                  => $role ? $role->libelle : null,
+                'role_code'             => $role ? $role->name : null,
+                'compte_active'         => (bool) $user->compte_active,
+                'tentatives_activation' => $user->tentatives_activation,
+                'compte_bloque'         => (bool) $user->compte_bloque,
+                'twofa'                 => false,
+                'created_at'            => $user->created_at,
             ];
         });
 
@@ -70,14 +81,17 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'id'        => $user->id,
-                'nom'       => $user->nom,
-                'prenom'    => $user->prenom,
-                'email'     => $user->email,
-                'telephone' => $user->telephone,
-                'statut'    => $user->statut,
-                'role'      => $role ? $role->libelle : null,
-                'role_code' => $role ? $role->name : null,
+                'id'                    => $user->id,
+                'nom'                   => $user->nom,
+                'prenom'                => $user->prenom,
+                'email'                 => $user->email,
+                'telephone'             => $user->telephone,
+                'statut'                => $user->statut,
+                'role'                  => $role ? $role->libelle : null,
+                'role_code'             => $role ? $role->name : null,
+                'compte_active'         => (bool) $user->compte_active,
+                'tentatives_activation' => $user->tentatives_activation,
+                'compte_bloque'         => (bool) $user->compte_bloque,
             ],
             'message' => 'Utilisateur trouvé',
             'errors'  => null
@@ -85,7 +99,8 @@ class UserController extends Controller
     }
 
     /**
-     * POST /users — Créer un utilisateur (admin uniquement - RG-USR-002)
+     * POST /users — Créer un utilisateur (admin)
+     * Génère automatiquement un mot de passe d'activation unique
      */
     public function store(Request $request)
     {
@@ -93,34 +108,118 @@ class UserController extends Controller
             'nom'       => 'required|string|max:100',
             'prenom'    => 'required|string|max:100',
             'email'     => 'required|email|unique:users,email',
-            'password'  => 'required|min:10',
             'telephone' => 'nullable|string|max:20',
             'role'      => 'required|string|exists:roles,name',
         ]);
 
+        // Génération du mot de passe d'activation
+        $mdpActivation = $this->generateActivationPassword();
+
         $user = User::create([
-            'id'                => (string) Str::uuid(),
-            'nom'               => $request->nom,
-            'prenom'            => $request->prenom,
-            'email'             => $request->email,
-            'mot_de_passe_hash' => Hash::make($request->password),
-            'telephone'         => $request->telephone,
-            'statut'            => 'actif',
-            'tentatives_echec'  => 0,
+            'id'                    => (string) Str::uuid(),
+            'nom'                   => $request->nom,
+            'prenom'                => $request->prenom,
+            'email'                 => $request->email,
+            'mot_de_passe_hash'     => Hash::make($mdpActivation),
+            'telephone'             => $request->telephone,
+            'statut'                => 'actif',
+            'tentatives_echec'      => 0,
+            'compte_active'         => false,
+            'mdp_activation'        => $mdpActivation, // En clair pour que l'admin le voie
+            'tentatives_activation' => 0,
+            'compte_bloque'         => false,
         ]);
 
         $user->assignRole($request->role);
 
         return response()->json([
             'success' => true,
-            'data'    => $user->load('roles'),
-            'message' => 'Utilisateur créé avec succès',
+            'data'    => [
+                'user'           => $user->load('roles'),
+                'mdp_activation' => $mdpActivation,
+            ],
+            'message' => 'Utilisateur créé. Mot de passe d\'activation généré.',
             'errors'  => null
         ], 201);
     }
 
     /**
-     * PUT /users/{id} — Modifier un utilisateur
+     * GET /users/{id}/activation-password — Voir le mdp d'activation actuel
+     */
+    public function getActivationPassword(User $user)
+    {
+        if ($user->compte_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ce compte est déjà activé.',
+                'errors'  => null
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'mdp_activation'        => $user->mdp_activation,
+                'tentatives_activation' => $user->tentatives_activation,
+                'compte_bloque'         => (bool) $user->compte_bloque,
+            ],
+            'message' => 'Mot de passe d\'activation',
+            'errors'  => null
+        ]);
+    }
+
+    /**
+     * POST /users/{id}/regenerate-activation — Régénérer le mdp d'activation
+     */
+    public function regenerateActivationPassword(User $user)
+    {
+        if ($user->compte_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ce compte est déjà activé.',
+                'errors'  => null
+            ], 422);
+        }
+
+        $newMdp = $this->generateActivationPassword();
+
+        $user->update([
+            'mdp_activation'    => $newMdp,
+            'mot_de_passe_hash' => Hash::make($newMdp),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => ['mdp_activation' => $newMdp],
+            'message' => 'Nouveau mot de passe d\'activation généré',
+            'errors'  => null
+        ]);
+    }
+
+    /**
+     * POST /users/{id}/unblock — Débloquer un compte après 3 tentatives échouées
+     */
+    public function unblock(User $user)
+    {
+        $newMdp = $this->generateActivationPassword();
+
+        $user->update([
+            'compte_bloque'         => false,
+            'tentatives_activation' => 0,
+            'mdp_activation'        => $newMdp,
+            'mot_de_passe_hash'     => Hash::make($newMdp),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => ['mdp_activation' => $newMdp],
+            'message' => 'Compte débloqué. Nouveau mot de passe d\'activation généré.',
+            'errors'  => null
+        ]);
+    }
+
+    /**
+     * PUT /users/{id}
      */
     public function update(Request $request, User $user)
     {
@@ -147,7 +246,7 @@ class UserController extends Controller
     }
 
     /**
-     * PATCH /users/{id}/suspend — Suspendre un utilisateur
+     * PATCH /users/{id}/suspend
      */
     public function suspend(User $user)
     {
@@ -162,7 +261,7 @@ class UserController extends Controller
     }
 
     /**
-     * PATCH /users/{id}/activate — Réactiver un utilisateur
+     * PATCH /users/{id}/activate
      */
     public function activate(User $user)
     {
@@ -180,11 +279,10 @@ class UserController extends Controller
     }
 
     /**
-     * DELETE /users/{id} — Supprimer un utilisateur
+     * DELETE /users/{id}
      */
     public function destroy(User $user)
     {
-        // Empêcher la suppression de son propre compte
         if (auth()->id() === $user->id) {
             return response()->json([
                 'success' => false,
@@ -199,31 +297,6 @@ class UserController extends Controller
             'success' => true,
             'data'    => null,
             'message' => 'Utilisateur supprimé',
-            'errors'  => null
-        ]);
-    }
-
-    /**
-     * GET /users/suspended — Vérifier comptes inactifs 90 jours (RG-USR-004)
-     */
-    public function checkInactive()
-    {
-        $inactive = User::where('statut', 'actif')
-            ->where(function ($q) {
-                $q->where('date_derniere_connexion', '<', now()->subDays(90))
-                  ->orWhereNull('date_derniere_connexion');
-            })
-            ->where('created_at', '<', now()->subDays(90))
-            ->get();
-
-        foreach ($inactive as $user) {
-            $user->update(['statut' => 'suspendu']);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data'    => ['suspended_count' => $inactive->count()],
-            'message' => "{$inactive->count()} compte(s) suspendu(s) pour inactivité",
             'errors'  => null
         ]);
     }
