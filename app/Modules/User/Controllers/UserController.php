@@ -5,25 +5,22 @@ namespace App\Modules\User\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Modules\Entities\Models\Entity;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
-    /**
-     * Génère un mot de passe d'activation unique
-     */
+    const ACTIVATION_VALIDITY_DAYS = 3;
+
     private function generateActivationPassword(): string
     {
         return 'Supmin#' . strtoupper(Str::random(7));
     }
 
-    /**
-     * GET /users — Liste tous les utilisateurs
-     */
     public function index(Request $request)
     {
-        $query = User::with('roles');
+        $query = User::with(['roles', 'entity']);
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -44,22 +41,30 @@ class UserController extends Controller
             });
         }
 
+        if ($request->has('entity_id')) {
+            $query->where('entity_id', $request->entity_id);
+        }
+
         $users = $query->latest()->get()->map(function ($user) {
             $role = $user->roles->first();
             return [
-                'id'                    => $user->id,
-                'nom'                   => $user->nom,
-                'prenom'                => $user->prenom,
-                'email'                 => $user->email,
-                'telephone'             => $user->telephone,
-                'statut'                => $user->statut,
-                'role'                  => $role ? $role->libelle : null,
-                'role_code'             => $role ? $role->name : null,
-                'compte_active'         => (bool) $user->compte_active,
-                'tentatives_activation' => $user->tentatives_activation,
-                'compte_bloque'         => (bool) $user->compte_bloque,
-                'twofa'                 => false,
-                'created_at'            => $user->created_at,
+                'id'                       => $user->id,
+                'nom'                      => $user->nom,
+                'prenom'                   => $user->prenom,
+                'email'                    => $user->email,
+                'telephone'                => $user->telephone,
+                'statut'                   => $user->statut,
+                'role'                     => $role ? $role->libelle : null,
+                'role_code'                => $role ? $role->name : null,
+                'entity_id'                => $user->entity_id,
+                'entite'                   => $user->entity ? $user->entity->denomination : null,
+                'entite_sigle'             => $user->entity ? $user->entity->sigle : null,
+                'compte_active'            => (bool) $user->compte_active,
+                'tentatives_activation'    => $user->tentatives_activation,
+                'compte_bloque'            => (bool) $user->compte_bloque,
+                'mdp_activation_expire_at' => $user->mdp_activation_expire_at,
+                'activation_expiree'       => $user->isActivationPasswordExpired(),
+                'created_at'               => $user->created_at,
             ];
         });
 
@@ -71,37 +76,35 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * GET /users/{id}
-     */
     public function show(User $user)
     {
+        $user->load(['roles', 'entity']);
         $role = $user->roles->first();
 
         return response()->json([
             'success' => true,
             'data'    => [
-                'id'                    => $user->id,
-                'nom'                   => $user->nom,
-                'prenom'                => $user->prenom,
-                'email'                 => $user->email,
-                'telephone'             => $user->telephone,
-                'statut'                => $user->statut,
-                'role'                  => $role ? $role->libelle : null,
-                'role_code'             => $role ? $role->name : null,
-                'compte_active'         => (bool) $user->compte_active,
-                'tentatives_activation' => $user->tentatives_activation,
-                'compte_bloque'         => (bool) $user->compte_bloque,
+                'id'                       => $user->id,
+                'nom'                      => $user->nom,
+                'prenom'                   => $user->prenom,
+                'email'                    => $user->email,
+                'telephone'                => $user->telephone,
+                'statut'                   => $user->statut,
+                'role'                     => $role ? $role->libelle : null,
+                'role_code'                => $role ? $role->name : null,
+                'entity_id'                => $user->entity_id,
+                'entite'                   => $user->entity ? $user->entity->denomination : null,
+                'compte_active'            => (bool) $user->compte_active,
+                'tentatives_activation'    => $user->tentatives_activation,
+                'compte_bloque'            => (bool) $user->compte_bloque,
+                'mdp_activation_expire_at' => $user->mdp_activation_expire_at,
+                'activation_expiree'       => $user->isActivationPasswordExpired(),
             ],
             'message' => 'Utilisateur trouvé',
             'errors'  => null
         ]);
     }
 
-    /**
-     * POST /users — Créer un utilisateur (admin)
-     * Génère automatiquement un mot de passe d'activation unique
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -110,42 +113,113 @@ class UserController extends Controller
             'email'     => 'required|email|unique:users,email',
             'telephone' => 'nullable|string|max:20',
             'role'      => 'required|string|exists:roles,name',
+            'entity_id' => 'nullable|uuid|exists:entites,id',
         ]);
 
-        // Génération du mot de passe d'activation
+        $role = $request->role;
+        $entityId = $request->entity_id;
+
+        // RG-USR-003
+        if (in_array($role, ['agent', 'responsable_entite']) && !$entityId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Les agents et responsables d\'entité doivent être rattachés à une entité.',
+                'errors'  => null
+            ], 422);
+        }
+
+        // RG-ENT-002
+        if ($role === 'responsable_entite' && $entityId) {
+            $entity = Entity::find($entityId);
+            if ($entity && $entity->responsable_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette entité a déjà un responsable.',
+                    'errors'  => null
+                ], 422);
+            }
+        }
+
         $mdpActivation = $this->generateActivationPassword();
+        $expireAt = now()->addDays(self::ACTIVATION_VALIDITY_DAYS);
 
         $user = User::create([
-            'id'                    => (string) Str::uuid(),
-            'nom'                   => $request->nom,
-            'prenom'                => $request->prenom,
-            'email'                 => $request->email,
-            'mot_de_passe_hash'     => Hash::make($mdpActivation),
-            'telephone'             => $request->telephone,
-            'statut'                => 'actif',
-            'tentatives_echec'      => 0,
-            'compte_active'         => false,
-            'mdp_activation'        => $mdpActivation, // En clair pour que l'admin le voie
-            'tentatives_activation' => 0,
-            'compte_bloque'         => false,
+            'id'                       => (string) Str::uuid(),
+            'nom'                      => $request->nom,
+            'prenom'                   => $request->prenom,
+            'email'                    => $request->email,
+            'mot_de_passe_hash'        => Hash::make($mdpActivation),
+            'telephone'                => $request->telephone,
+            'entity_id'                => $entityId,
+            'statut'                   => 'actif',
+            'tentatives_echec'         => 0,
+            'compte_active'            => false,
+            'mdp_activation'           => $mdpActivation,
+            'mdp_activation_expire_at' => $expireAt,
+            'tentatives_activation'    => 0,
+            'compte_bloque'            => false,
         ]);
 
-        $user->assignRole($request->role);
+        $user->assignRole($role);
+
+        if ($role === 'responsable_entite' && $entityId) {
+            Entity::where('id', $entityId)->update(['responsable_id' => $user->id]);
+        }
 
         return response()->json([
             'success' => true,
             'data'    => [
-                'user'           => $user->load('roles'),
-                'mdp_activation' => $mdpActivation,
+                'user'                     => $user->load(['roles', 'entity']),
+                'mdp_activation'           => $mdpActivation,
+                'mdp_activation_expire_at' => $expireAt,
             ],
-            'message' => 'Utilisateur créé. Mot de passe d\'activation généré.',
+            'message' => 'Utilisateur créé. Mot de passe d\'activation généré (valide 3 jours).',
             'errors'  => null
         ], 201);
     }
 
-    /**
-     * GET /users/{id}/activation-password — Voir le mdp d'activation actuel
-     */
+    public function update(Request $request, User $user)
+    {
+        $request->validate([
+            'nom'       => 'sometimes|string|max:100',
+            'prenom'    => 'sometimes|string|max:100',
+            'email'     => 'sometimes|email|unique:users,email,' . $user->id,
+            'telephone' => 'nullable|string|max:20',
+            'role'      => 'sometimes|string|exists:roles,name',
+            'entity_id' => 'nullable|uuid|exists:entites,id',
+        ]);
+
+        $oldRole = $user->roles->first()?->name;
+        $oldEntityId = $user->entity_id;
+
+        $user->update($request->only(['nom', 'prenom', 'email', 'telephone', 'entity_id']));
+
+        if ($request->has('role')) {
+            $user->syncRoles([$request->role]);
+        }
+
+        $newRole = $request->role ?? $oldRole;
+        $newEntityId = $request->entity_id ?? $oldEntityId;
+
+        if ($newRole === 'responsable_entite' && $newEntityId) {
+            if ($oldEntityId && $oldEntityId !== $newEntityId) {
+                Entity::where('responsable_id', $user->id)->update(['responsable_id' => null]);
+            }
+            Entity::where('id', $newEntityId)->update(['responsable_id' => $user->id]);
+        }
+
+        if ($oldRole === 'responsable_entite' && $newRole !== 'responsable_entite') {
+            Entity::where('responsable_id', $user->id)->update(['responsable_id' => null]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $user->load(['roles', 'entity']),
+            'message' => 'Utilisateur mis à jour',
+            'errors'  => null
+        ]);
+    }
+
     public function getActivationPassword(User $user)
     {
         if ($user->compte_active) {
@@ -159,18 +233,17 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'data'    => [
-                'mdp_activation'        => $user->mdp_activation,
-                'tentatives_activation' => $user->tentatives_activation,
-                'compte_bloque'         => (bool) $user->compte_bloque,
+                'mdp_activation'           => $user->mdp_activation,
+                'mdp_activation_expire_at' => $user->mdp_activation_expire_at,
+                'activation_expiree'       => $user->isActivationPasswordExpired(),
+                'tentatives_activation'    => $user->tentatives_activation,
+                'compte_bloque'            => (bool) $user->compte_bloque,
             ],
             'message' => 'Mot de passe d\'activation',
             'errors'  => null
         ]);
     }
 
-    /**
-     * POST /users/{id}/regenerate-activation — Régénérer le mdp d'activation
-     */
     public function regenerateActivationPassword(User $user)
     {
         if ($user->compte_active) {
@@ -182,105 +255,62 @@ class UserController extends Controller
         }
 
         $newMdp = $this->generateActivationPassword();
+        $expireAt = now()->addDays(self::ACTIVATION_VALIDITY_DAYS);
 
         $user->update([
-            'mdp_activation'    => $newMdp,
-            'mot_de_passe_hash' => Hash::make($newMdp),
+            'mdp_activation'           => $newMdp,
+            'mdp_activation_expire_at' => $expireAt,
+            'mot_de_passe_hash'        => Hash::make($newMdp),
+            'tentatives_activation'    => 0, // Reset des tentatives
         ]);
 
         return response()->json([
             'success' => true,
-            'data'    => ['mdp_activation' => $newMdp],
-            'message' => 'Nouveau mot de passe d\'activation généré',
+            'data'    => [
+                'mdp_activation'           => $newMdp,
+                'mdp_activation_expire_at' => $expireAt,
+            ],
+            'message' => 'Nouveau mot de passe d\'activation généré (valide 3 jours)',
             'errors'  => null
         ]);
     }
 
-    /**
-     * POST /users/{id}/unblock — Débloquer un compte après 3 tentatives échouées
-     */
     public function unblock(User $user)
     {
         $newMdp = $this->generateActivationPassword();
+        $expireAt = now()->addDays(self::ACTIVATION_VALIDITY_DAYS);
 
         $user->update([
-            'compte_bloque'         => false,
-            'tentatives_activation' => 0,
-            'mdp_activation'        => $newMdp,
-            'mot_de_passe_hash'     => Hash::make($newMdp),
+            'compte_bloque'            => false,
+            'tentatives_activation'    => 0,
+            'mdp_activation'           => $newMdp,
+            'mdp_activation_expire_at' => $expireAt,
+            'mot_de_passe_hash'        => Hash::make($newMdp),
         ]);
 
         return response()->json([
             'success' => true,
-            'data'    => ['mdp_activation' => $newMdp],
+            'data'    => [
+                'mdp_activation'           => $newMdp,
+                'mdp_activation_expire_at' => $expireAt,
+            ],
             'message' => 'Compte débloqué. Nouveau mot de passe d\'activation généré.',
             'errors'  => null
         ]);
     }
 
-    /**
-     * PUT /users/{id}
-     */
-    public function update(Request $request, User $user)
-    {
-        $request->validate([
-            'nom'       => 'sometimes|string|max:100',
-            'prenom'    => 'sometimes|string|max:100',
-            'email'     => 'sometimes|email|unique:users,email,' . $user->id,
-            'telephone' => 'nullable|string|max:20',
-            'role'      => 'sometimes|string|exists:roles,name',
-        ]);
-
-        $user->update($request->only(['nom', 'prenom', 'email', 'telephone']));
-
-        if ($request->has('role')) {
-            $user->syncRoles([$request->role]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data'    => $user->load('roles'),
-            'message' => 'Utilisateur mis à jour',
-            'errors'  => null
-        ]);
-    }
-
-    /**
-     * PATCH /users/{id}/suspend
-     */
     public function suspend(User $user)
     {
         $user->update(['statut' => 'suspendu']);
-
-        return response()->json([
-            'success' => true,
-            'data'    => null,
-            'message' => 'Utilisateur suspendu',
-            'errors'  => null
-        ]);
+        return response()->json(['success' => true, 'data' => null, 'message' => 'Utilisateur suspendu', 'errors' => null]);
     }
 
-    /**
-     * PATCH /users/{id}/activate
-     */
     public function activate(User $user)
     {
-        $user->update([
-            'statut'           => 'actif',
-            'tentatives_echec' => 0,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data'    => null,
-            'message' => 'Utilisateur réactivé',
-            'errors'  => null
-        ]);
+        $user->update(['statut' => 'actif', 'tentatives_echec' => 0]);
+        return response()->json(['success' => true, 'data' => null, 'message' => 'Utilisateur réactivé', 'errors' => null]);
     }
 
-    /**
-     * DELETE /users/{id}
-     */
     public function destroy(User $user)
     {
         if (auth()->id() === $user->id) {
@@ -291,6 +321,7 @@ class UserController extends Controller
             ], 403);
         }
 
+        Entity::where('responsable_id', $user->id)->update(['responsable_id' => null]);
         $user->delete();
 
         return response()->json([

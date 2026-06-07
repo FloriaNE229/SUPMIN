@@ -13,18 +13,13 @@ class AuthController extends Controller
     const MAX_ATTEMPTS = 5;
     const LOCK_MINUTES = 30;
     const MAX_ACTIVATION_ATTEMPTS = 3;
+    const ACTIVATION_VALIDITY_DAYS = 3;
 
-    /**
-     * Génère un mot de passe d'activation unique
-     */
     private function generateActivationPassword(): string
     {
         return 'Supmin#' . strtoupper(Str::random(7));
     }
 
-    /**
-     * LOGIN avec vérification rôle + activation
-     */
     public function login(Request $request)
     {
         $request->validate([
@@ -53,7 +48,7 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Vérifier si le compte est bloqué (3 tentatives d'activation échouées)
+        // Compte bloqué
         if ($user->compte_bloque) {
             return response()->json([
                 'success' => false,
@@ -62,7 +57,7 @@ class AuthController extends Controller
             ], 423);
         }
 
-        // Vérifier si le compte est suspendu
+        // Compte suspendu
         if ($user->statut === 'suspendu') {
             return response()->json([
                 'success' => false,
@@ -73,19 +68,31 @@ class AuthController extends Controller
 
         // CAS 1 : Compte non encore activé (première connexion)
         if (!$user->compte_active) {
+
+            // ⚠️ Vérifier d'abord si le mdp d'activation est expiré
+            if ($user->isActivationPasswordExpired()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Votre mot de passe d\'activation a expiré (validité : 3 jours). Contactez l\'administrateur pour en obtenir un nouveau.',
+                    'errors'  => null
+                ], 401);
+            }
+
             // Vérifier le mot de passe d'activation
             if (!Hash::check($request->password, $user->mot_de_passe_hash)) {
-                // Tentative échouée : régénérer le mdp d'activation
+                // Tentative échouée : régénérer + redonner 3 jours
                 $newMdp = $this->generateActivationPassword();
+                $newExpireAt = now()->addDays(self::ACTIVATION_VALIDITY_DAYS);
                 $newAttempts = $user->tentatives_activation + 1;
 
                 $user->update([
-                    'mdp_activation'        => $newMdp,
-                    'mot_de_passe_hash'     => Hash::make($newMdp),
-                    'tentatives_activation' => $newAttempts,
+                    'mdp_activation'           => $newMdp,
+                    'mdp_activation_expire_at' => $newExpireAt,
+                    'mot_de_passe_hash'        => Hash::make($newMdp),
+                    'tentatives_activation'    => $newAttempts,
                 ]);
 
-                // Si 3 tentatives échouées : bloquer le compte
+                // 3 tentatives échouées : bloquer
                 if ($newAttempts >= self::MAX_ACTIVATION_ATTEMPTS) {
                     $user->update(['compte_bloque' => true]);
 
@@ -103,20 +110,18 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // Mot de passe d'activation correct : retourner un token temporaire pour la définition du mdp personnel
+            // Mot de passe correct → token temporaire
             return response()->json([
-                'success'         => true,
-                'first_login'     => true,
-                'user_id'         => $user->id,
-                'temp_token'      => $user->createToken('first_login', ['first-login'])->plainTextToken,
-                'message'         => 'Première connexion. Veuillez définir votre mot de passe personnel.',
-                'errors'          => null
+                'success'     => true,
+                'first_login' => true,
+                'user_id'     => $user->id,
+                'temp_token'  => $user->createToken('first_login', ['first-login'])->plainTextToken,
+                'message'     => 'Première connexion. Veuillez définir votre mot de passe personnel.',
+                'errors'      => null
             ]);
         }
 
-        // CAS 2 : Compte activé (connexion normale)
-
-        // Vérifier verrouillage temporaire (5 tentatives)
+        // CAS 2 : Compte activé
         if ($user->tentatives_echec >= self::MAX_ATTEMPTS) {
             $lockedUntil = $user->updated_at->addMinutes(self::LOCK_MINUTES);
             if (now()->lt($lockedUntil)) {
@@ -145,7 +150,6 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Connexion réussie
         $user->update([
             'tentatives_echec'        => 0,
             'date_derniere_connexion' => now(),
@@ -163,6 +167,7 @@ class AuthController extends Controller
                 'email'     => $user->email,
                 'statut'    => $user->statut,
                 'telephone' => $user->telephone,
+                'entity_id' => $user->entity_id,
                 'role'      => $userRole->libelle,
                 'role_code' => $userRole->name,
             ],
@@ -171,9 +176,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * POST /set-password — Définir son mot de passe personnel (première connexion)
-     */
     public function setPersonalPassword(Request $request)
     {
         $request->validate([
@@ -192,16 +194,14 @@ class AuthController extends Controller
         }
 
         $user->update([
-            'mot_de_passe_hash'     => Hash::make($request->password),
-            'compte_active'         => true,
-            'mdp_activation'        => null,
-            'tentatives_activation' => 0,
+            'mot_de_passe_hash'        => Hash::make($request->password),
+            'compte_active'            => true,
+            'mdp_activation'           => null,
+            'mdp_activation_expire_at' => null,
+            'tentatives_activation'    => 0,
         ]);
 
-        // Supprimer le token temporaire
         $user->tokens()->delete();
-
-        // Créer un vrai token de session
         $token = $user->createToken('auth_token')->plainTextToken;
         $role = $user->roles->first();
 
@@ -214,6 +214,7 @@ class AuthController extends Controller
                 'prenom'    => $user->prenom,
                 'email'     => $user->email,
                 'statut'    => $user->statut,
+                'entity_id' => $user->entity_id,
                 'role'      => $role ? $role->libelle : null,
                 'role_code' => $role ? $role->name : null,
             ],
@@ -222,9 +223,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * LOGOUT
-     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -236,12 +234,9 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * ME
-     */
     public function me(Request $request)
     {
-        $user = $request->user()->load('roles');
+        $user = $request->user()->load(['roles', 'entity']);
         $role = $user->roles->first();
 
         return response()->json([
@@ -253,6 +248,8 @@ class AuthController extends Controller
                 'email'     => $user->email,
                 'telephone' => $user->telephone,
                 'statut'    => $user->statut,
+                'entity_id' => $user->entity_id,
+                'entite'    => $user->entity ? $user->entity->denomination : null,
                 'role'      => $role ? $role->libelle : null,
                 'role_code' => $role ? $role->name : null,
             ],
