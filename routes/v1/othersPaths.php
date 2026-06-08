@@ -11,8 +11,7 @@ use App\Modules\Report\Controllers\ReportController;
 use App\Modules\Notification\Controllers\NotificationController;
 use App\Modules\Response\Controllers\ResponseController;
 use App\Http\Controllers\ResponseSyncController;
-use App\Modules\Dashboard\Controllers\DashboardController;
-use App\Modules\Auth\Controllers\AuthController;
+use App\Modules\Dashboard\Controllers\DashboardController; 
 
 /*
 |--------------------------------------------------------------------------
@@ -34,7 +33,6 @@ Route::prefix('users')->middleware('role:admin')->group(function () {
     Route::delete('/{user}', [UserController::class, 'destroy']);
     Route::patch('/{user}/suspend', [UserController::class, 'suspend']);
     Route::patch('/{user}/activate', [UserController::class, 'activate']);
-    Route::post('/register', [AuthController::class, 'register']);
     Route::post('/check-inactive', [UserController::class, 'checkInactive']);
 
     // === Routes activation compte ===

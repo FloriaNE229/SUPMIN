@@ -11,8 +11,7 @@ use App\Modules\Auth\Controllers\AuthController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::post('/register', [AuthController::class, 'register']);// A supprimer après les tests
-
+Route::post('/password/forgot', [AuthController::class, 'forgotPassword']);
 Route::post('/password/reset', [AuthController::class, 'resetPassword']);
 
 /*
@@ -35,20 +34,12 @@ Route::middleware('auth:sanctum')->group(function () {
     | ADMIN ONLY
     |--------------------------------------------------------------------------
     */
-
     Route::middleware('role:admin')->group(function () {
-
-        //Route::post('/register', [AuthController::class, 'register']); // A déplacer ici après les tests
-
-        Route::get('/users', function () {
-
+        Route::get('/users-list', function () {
             return response()->json([
                 'success' => true,
                 'message' => 'Liste utilisateurs'
             ]);
-
         });
-
     });
-
 });
