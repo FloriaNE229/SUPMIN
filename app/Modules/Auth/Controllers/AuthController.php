@@ -38,7 +38,6 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Vérification du rôle sélectionné
         $userRole = $user->roles->first();
         if (!$userRole || $userRole->libelle !== $request->role) {
             return response()->json([
@@ -48,7 +47,6 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Compte bloqué
         if ($user->compte_bloque) {
             return response()->json([
                 'success' => false,
@@ -57,7 +55,6 @@ class AuthController extends Controller
             ], 423);
         }
 
-        // Compte suspendu
         if ($user->statut === 'suspendu') {
             return response()->json([
                 'success' => false,
@@ -66,10 +63,8 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // CAS 1 : Compte non encore activé (première connexion)
         if (!$user->compte_active) {
 
-            // ⚠️ Vérifier d'abord si le mdp d'activation est expiré
             if ($user->isActivationPasswordExpired()) {
                 return response()->json([
                     'success' => false,
@@ -78,9 +73,7 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // Vérifier le mot de passe d'activation
             if (!Hash::check($request->password, $user->mot_de_passe_hash)) {
-                // Tentative échouée : régénérer + redonner 3 jours
                 $newMdp = $this->generateActivationPassword();
                 $newExpireAt = now()->addDays(self::ACTIVATION_VALIDITY_DAYS);
                 $newAttempts = $user->tentatives_activation + 1;
@@ -92,7 +85,6 @@ class AuthController extends Controller
                     'tentatives_activation'    => $newAttempts,
                 ]);
 
-                // 3 tentatives échouées : bloquer
                 if ($newAttempts >= self::MAX_ACTIVATION_ATTEMPTS) {
                     $user->update(['compte_bloque' => true]);
 
@@ -110,7 +102,6 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // Mot de passe correct → token temporaire
             return response()->json([
                 'success'     => true,
                 'first_login' => true,
@@ -121,7 +112,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // CAS 2 : Compte activé
         if ($user->tentatives_echec >= self::MAX_ATTEMPTS) {
             $lockedUntil = $user->updated_at->addMinutes(self::LOCK_MINUTES);
             if (now()->lt($lockedUntil)) {
@@ -255,6 +245,93 @@ class AuthController extends Controller
             ],
             'message' => 'Utilisateur authentifié',
             'errors'  => null
+        ]);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun utilisateur trouvé avec cet email.',
+                'errors'  => null,
+            ], 404);
+        }
+
+        if ($user->compte_bloque) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Votre compte est bloqué. Contactez l\'administrateur.',
+                'errors'  => null,
+            ], 403);
+        }
+
+        $newActivationPassword = $this->generateActivationPassword();
+
+        $user->update([
+            'mdp_activation'           => Hash::make($newActivationPassword),
+            'mdp_activation_expire_at' => now()->addDays(self::ACTIVATION_VALIDITY_DAYS),
+            'compte_active'            => false,
+            'tentatives_activation'    => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'message'            => 'Un mot de passe temporaire vous a été envoyé par email.',
+                'temporary_password' => $newActivationPassword,
+            ],
+            'message' => 'Mot de passe temporaire généré et valide pendant 3 jours.',
+            'errors'  => null,
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email'                    => 'required|email|exists:users,email',
+            'temporary_password'       => 'required|string',
+            'new_password'             => 'required|string|min:8|confirmed',
+            'new_password_confirmation' => 'required',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->temporary_password, $user->mdp_activation)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mot de passe temporaire incorrect.',
+                'errors'  => null,
+            ], 401);
+        }
+
+        if ($user->isActivationPasswordExpired()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le mot de passe temporaire a expiré. Demandez-en un nouveau.',
+                'errors'  => null,
+            ], 401);
+        }
+
+        $user->update([
+            'mot_de_passe_hash'        => Hash::make($request->new_password),
+            'compte_active'            => true,
+            'mdp_activation'           => null,
+            'mdp_activation_expire_at' => null,
+            'tentatives_activation'    => 0,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => null,
+            'message' => 'Mot de passe réinitialisé avec succès. Vous pouvez vous connecter.',
+            'errors'  => null,
         ]);
     }
 }
