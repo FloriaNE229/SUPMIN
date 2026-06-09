@@ -334,4 +334,69 @@ class AuthController extends Controller
             'errors'  => null,
         ]);
     }
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+    
+        $request->validate([
+            'nom'       => 'sometimes|string|max:100',
+            'prenom'    => 'sometimes|string|max:100',
+            'telephone' => 'sometimes|nullable|string|max:20',
+            'email'     => 'sometimes|email|unique:users,email,' . $user->id,
+        ]);
+    
+        $user->update($request->only(['nom', 'prenom', 'telephone', 'email']));
+    
+        $user->load(['roles', 'entity']);
+        $role = $user->roles->first();
+    
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'id'        => $user->id,
+                'nom'       => $user->nom,
+                'prenom'    => $user->prenom,
+                'email'     => $user->email,
+                'telephone' => $user->telephone,
+                'statut'    => $user->statut,
+                'entity_id' => $user->entity_id,
+                'entite'    => $user->entity ? $user->entity->denomination : null,
+                'role'      => $role ? $role->libelle : null,
+                'role_code' => $role ? $role->name : null,
+            ],
+            'message' => 'Profil mis à jour avec succès.',
+            'errors'  => null,
+        ]);
+    }
+    
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password'      => 'required|string',
+            'new_password'          => 'required|string|min:8|confirmed',
+            'new_password_confirmation' => 'required',
+        ]);
+    
+        $user = $request->user();
+    
+        if (!Hash::check($request->current_password, $user->mot_de_passe_hash)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le mot de passe actuel est incorrect.',
+                'errors'  => null,
+            ], 401);
+        }
+    
+        $user->update([
+            'mot_de_passe_hash' => Hash::make($request->new_password),
+        ]);
+    
+        return response()->json([
+            'success' => true,
+            'data'    => null,
+            'message' => 'Mot de passe modifié avec succès.',
+            'errors'  => null,
+        ]);
+    }
 }

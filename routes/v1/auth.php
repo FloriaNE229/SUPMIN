@@ -26,6 +26,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
+     // Profil utilisateur
+    Route::put('/me/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/me/change-password', [AuthController::class, 'changePassword']);
+ 
     // Définir mot de passe personnel (première connexion)
     Route::post('/set-password', [AuthController::class, 'setPersonalPassword']);
 
