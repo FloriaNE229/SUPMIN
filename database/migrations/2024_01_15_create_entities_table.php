@@ -6,43 +6,111 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('entities', function (Blueprint $table) {
+        Schema::create('entites', function (Blueprint $table) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | UUID PK
+            |--------------------------------------------------------------------------
+            */
+
             $table->uuid('id')->primary();
-            $table->string('code', 50)->unique(); // Code unique d'identification
-            $table->string('name', 255); // Nom de l'entité
-            $table->enum('type', ['administrative_structure', 'autonomous_agency', 'program_project']); // RG-ENT-003
-            $table->enum('status', ['active', 'suspended'])->default('active'); // RG-ENT-004
-            $table->text('description')->nullable();
-            $table->string('address', 500)->nullable();
-            $table->string('phone', 50)->nullable();
-            $table->string('email', 255)->nullable();
-            $table->uuid('responsable_id')->nullable(); // RG-ENT-002
-            $table->uuid('entite_parente_id')->nullable(); // Hiérarchie
-            $table->json('metadata')->nullable(); // Champs supplémentaires
+
+            /*
+            |--------------------------------------------------------------------------
+            | IDENTIFICATION
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('code', 20)->unique();
+
+            $table->string('denomination', 255);
+
+            $table->string('sigle', 20)->nullable();
+
+            /*
+            |--------------------------------------------------------------------------
+            | TYPE
+            |--------------------------------------------------------------------------
+            */
+
+            $table->enum('type_entite', [
+                'structure_administrative',
+                'agence',
+                'programme'
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | LOCALISATION
+            |--------------------------------------------------------------------------
+            */
+
+            $table->string('localisation', 255);
+
+            $table->string('region', 100);
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESPONSABLE (UUID FK → users.id)
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('responsable_id');
+
+            $table->foreign('responsable_id')
+                ->references('id')
+                ->on('users')
+                ->cascadeOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | STATUT
+            |--------------------------------------------------------------------------
+            */
+
+            $table->enum('statut', [
+                'actif',
+                'suspendu',
+                'cloture'
+            ])->default('actif');
+
+            /*
+            |--------------------------------------------------------------------------
+            | DATE CREATION
+            |--------------------------------------------------------------------------
+            */
+
+            $table->date('date_creation');
+
+            /*
+            |--------------------------------------------------------------------------
+            | HIERARCHIE
+            |--------------------------------------------------------------------------
+            */
+
+            $table->uuid('entite_parente_id')
+                ->nullable();
+
+            $table->foreign('entite_parente_id')
+                ->references('id')
+                ->on('entites')
+                ->nullOnDelete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | TIMESTAMPS
+            |--------------------------------------------------------------------------
+            */
+
             $table->timestamps();
-
-            // Foreign keys
-            $table->foreign('responsable_id')->references('id')->on('users')->onDelete('SET NULL');
-            $table->foreign('entite_parente_id')->references('id')->on('entities')->onDelete('SET NULL');
-
-            // Indexes
-            $table->index('type');
-            $table->index('status');
-            $table->index('responsable_id');
-            $table->index('entite_parente_id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('entities');
+        Schema::dropIfExists('entites');
     }
 };

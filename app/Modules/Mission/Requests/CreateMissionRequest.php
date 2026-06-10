@@ -4,100 +4,155 @@ namespace App\Modules\Mission\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\User;
 
 class CreateMissionRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Autoriser la requête
      */
     public function authorize(): bool
     {
-        return true; // TODO: Implémenter les permissions plus tard
+        return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Règles de validation
      */
     public function rules(): array
     {
         return [
-            'reference' => ['required', 'string', 'max:50', 'unique:missions,reference'],
-            'title' => ['required', 'string', 'max:255'],
-            'objective' => ['required', 'string', 'max:1000'], // RG-MIS-007
-            'priority_axes' => ['nullable', 'string', 'max:1000'], // RG-MIS-007
-            'status' => ['sometimes', 'string', Rule::in(['planned', 'in_progress', 'suspended', 'completed'])], // RG-MIS-004
-            'entite_id' => ['required', 'exists:entities,id'], // RG-MIS-002
-            'coordinateur_id' => ['required', 'exists:users,id'], // RG-MIS-001
-            'start_date' => ['required', 'date', 'after_or_equal:today'],
-            'end_date' => ['required', 'date', 'after:start_date'],
-            'team_composition' => ['nullable', 'string', 'max:1000'], // RG-MIS-007
-            'location' => ['nullable', 'string', 'max:500'],
-            'budget' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-            'metadata' => ['nullable', 'array'],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Informations principales de la mission
+            |--------------------------------------------------------------------------
+            */
+            'reference' => [
+                'required',
+                'string',
+                'max:50',
+                'unique:missions,reference',
+            ],
+
+            'entity_id' => [
+                'required',
+                'uuid',
+                'exists:entites,id',
+            ],
+
+            'objectif' => [
+                'required',
+                'string',
+            ],
+
+            'axes_prioritaires' => [
+                'nullable',
+                'array',
+            ],
+
+            'date_debut' => [
+                'required',
+                'date',
+            ],
+
+            'date_fin_prevue' => [
+                'required',
+                'date',
+                'after_or_equal:date_debut',
+            ],
+
+            'date_fin_effective' => [
+                'nullable',
+                'date',
+            ],
+
+            'statut' => [
+                'required',
+                Rule::in([
+                    'planifiee',
+                    'en_cours',
+                    'suspendue',
+                    'cloturee',
+                ]),
+            ],
+
+            'annee_supervision' => [
+                'required',
+                'integer',
+                'min:2000',
+                'max:2100',
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Formulaires associés
+            |--------------------------------------------------------------------------
+            */
+            'form_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'form_ids.*' => [
+                'uuid',
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Ancien format : liste simple d'agents
+            |--------------------------------------------------------------------------
+            */
+            'agent_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'agent_ids.*' => [
+                'uuid',
+                'exists:users,id',
+                function ($attribute, $value, $fail) {
+                    $user = User::find($value);
+
+                    if (!$user || !$user->hasRole('agent', 'sanctum')) {
+                        $fail("L'utilisateur sélectionné doit avoir le rôle agent.");
+                    }
+                },
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Nouveau format : agents avec rôle
+            | Exemple :
+            | "agents": {
+            |   "uuid-user-1": "leader",
+            |   "uuid-user-2": "membre"
+            | }
+            |--------------------------------------------------------------------------
+            */
+            'agents' => [
+                'nullable',
+                'array',
+            ],
+
+            'agents.*' => [
+                Rule::in(['leader', 'membre']),
+            ],
         ];
     }
 
     /**
-     * Get custom messages for validation errors.
+     * Messages personnalisés
      */
     public function messages(): array
     {
         return [
-            'reference.required' => 'La référence de la mission est obligatoire.',
+            'entity_id.exists' => "L'entité sélectionnée n'existe pas.",
             'reference.unique' => 'Cette référence de mission existe déjà.',
-            'title.required' => 'Le titre de la mission est obligatoire.',
-            'objective.required' => 'L\'objectif de la mission est obligatoire.',
-            'entite_id.required' => 'L\'entité supervisée est obligatoire.',
-            'entite_id.exists' => 'L\'entité sélectionnée n\'existe pas.',
-            'coordinateur_id.required' => 'Le coordinateur est obligatoire.',
-            'coordinateur_id.exists' => 'Le coordinateur sélectionné n\'existe pas.',
-            'start_date.required' => 'La date de début est obligatoire.',
-            'start_date.after_or_equal' => 'La date de début doit être aujourd\'ui ou dans le futur.',
-            'end_date.required' => 'La date de fin est obligatoire.',
-            'end_date.after' => 'La date de fin doit être après la date de début.',
-            'status.in' => 'Le statut doit être: planifiée, en cours, suspendue ou clôturée.',
-            'budget.numeric' => 'Le budget doit être un nombre.',
-            'budget.min' => 'Le budget doit être positif.',
+            'date_fin_prevue.after_or_equal' =>
+                'La date de fin prévue doit être postérieure ou égale à la date de début.',
+            'agents.*.in' =>
+                'Le rôle de chaque agent doit être leader ou membre.',
         ];
-    }
-
-    /**
-     * Get custom attributes for validation errors.
-     */
-    public function attributes(): array
-    {
-        return [
-            'reference' => 'référence',
-            'title' => 'titre',
-            'objective' => 'objectif',
-            'priority_axes' => 'axes prioritaires',
-            'status' => 'statut',
-            'entite_id' => 'entité',
-            'coordinateur_id' => 'coordinateur',
-            'start_date' => 'date de début',
-            'end_date' => 'date de fin',
-            'team_composition' => 'composition équipe',
-            'location' => 'lieu',
-            'budget' => 'budget',
-            'notes' => 'notes',
-            'metadata' => 'métadonnées',
-        ];
-    }
-
-    /**
-     * Configure the validator instance.
-     */
-    public function withValidator($validator)
-    {
-        $validator->after(function ($validator) {
-            // Vérifier que l'entité peut recevoir des missions (RG-ENT-004)
-            if ($this->entite_id) {
-                $entity = \App\Modules\Entity\Models\Entity::find($this->entite_id);
-                if ($entity && !$entity->canReceiveMissions()) {
-                    $validator->errors()->add('entite_id', 'Cette entité ne peut pas recevoir de missions car elle est suspendue.');
-                }
-            }
-        });
     }
 }

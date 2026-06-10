@@ -2,174 +2,157 @@
 
 namespace App\Modules\Mission\Models;
 
-use App\Modules\Entity\Models\Entity;
-use App\Modules\User\Models\User;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Modules\Shared\Traits\HasUuid;
 
 class Mission extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasUuid;
+
+    protected $table = 'missions';
 
     protected $fillable = [
+        'id',
         'reference',
-        'title',
-        'objective',
-        'priority_axes',
-        'status',
-        'entite_id',
+        'entity_id',
         'coordinateur_id',
-        'start_date',
-        'end_date',
-        'team_composition',
-        'location',
-        'budget',
-        'notes',
-        'metadata',
+        'objectif',
+        'axes_prioritaires',
+        'date_debut',
+        'date_fin_prevue',
+        'date_fin_effective',
+        'statut',
+        'annee_supervision',
+        'pdf_path',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
-        'status' => 'string',
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'budget' => 'decimal:2',
+        'axes_prioritaires' => 'array',
+        'date_debut' => 'date',
+        'date_fin_prevue' => 'date',
+        'date_fin_effective' => 'date',
     ];
 
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     /**
-     * Relation avec l'entité supervisée (RG-MIS-002)
+     * Entité liée à la mission
      */
-    public function entite(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function entity()
     {
-        return $this->belongsTo(Entity::class, 'entite_id');
+        return $this->belongsTo(
+            \App\Modules\Entities\Models\Entity::class,
+            'entity_id'
+        );
     }
 
     /**
-     * Relation avec le coordinateur (RG-MIS-001)
+     * Alias pour compatibilité : mission->entite
      */
-    public function coordinateur(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function entite()
     {
-        return $this->belongsTo(User::class, 'coordinateur_id');
+        return $this->entity();
     }
 
     /**
-     * Relation avec les formulaires associés
+     * Coordinateur de la mission
      */
-    public function formulaires(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function coordinateur()
     {
-        return $this->hasMany(\App\Modules\Form\Models\Form::class, 'mission_id');
+        return $this->belongsTo(
+            \App\Models\User::class,
+            'coordinateur_id'
+        );
     }
 
     /**
-     * Relation avec les réponses collectées
+     * Alias pour compatibilité : mission->user
      */
-    public function reponses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function user()
     {
-        return $this->hasMany(\App\Modules\Response\Models\Response::class, 'mission_id');
+        return $this->coordinateur();
     }
 
     /**
-     * Relation avec les recommandations
+     * Formulaires liés à la mission
      */
-    public function recommendations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function forms()
     {
-        return $this->hasMany(\App\Modules\Recommendation\Models\Recommendation::class, 'mission_id');
+        return $this->belongsToMany(
+            \App\Modules\Form\Models\Form::class,
+            'mission_forms',
+            'mission_id',
+            'form_id'
+        );
     }
 
     /**
-     * Relation avec les rapports générés
+     * Réponses
      */
-    public function rapports(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function responses()
     {
-        return $this->hasMany(\App\Modules\Report\Models\Report::class, 'mission_id');
+        return $this->hasMany(
+            \App\Modules\Response\Models\Response::class,
+            'mission_id'
+        );
     }
 
     /**
-     * Vérifie si la mission est planifiée (RG-MIS-004)
+     * Recommandations
      */
-    public function isPlanned(): bool
+    public function recommendations()
     {
-        return $this->status === 'planned';
+        return $this->hasMany(
+            \App\Modules\Recommendation\Models\Recommendation::class,
+            'mission_id'
+        );
     }
 
     /**
-     * Vérifie si la mission est en cours (RG-MIS-004)
+     * Agents affectés à la mission
      */
-    public function isInProgress(): bool
+    public function agents()
     {
-        return $this->status === 'in_progress';
+        return $this->belongsToMany(
+            \App\Models\User::class,
+            'mission_user',
+            'mission_id',
+            'user_id'
+        )
+        ->withPivot('role')
+        ->withTimestamps();
     }
 
     /**
-     * Vérifie si la mission est suspendue (RG-MIS-004)
+     * Leader de la mission
      */
-    public function isSuspended(): bool
+    public function leader()
     {
-        return $this->status === 'suspended';
+        return $this->agents()
+            ->wherePivot('role', 'leader')
+            ->first();
     }
 
     /**
-     * Vérifie si la mission est clôturée (RG-MIS-004)
+     * Réponses aux formulaires
      */
-    public function isCompleted(): bool
+    public function answers()
     {
-        return $this->status === 'completed';
+        return $this->hasMany(
+            \App\Modules\Form\Models\Answer::class,
+            'mission_id'
+        );
     }
 
     /**
-     * Vérifie si la mission peut démarrer (RG-MIS-003)
+     * Logs d'audit de la mission
      */
-    public function canStart(): bool
+    public function logs()
     {
-        return $this->isPlanned() && $this->formulaires()->count() > 0;
-    }
-
-    /**
-     * Obtenir la durée de la mission en jours
-     */
-    public function getDurationInDays(): int
-    {
-        return $this->start_date->diffInDays($this->end_date) + 1;
-    }
-
-    /**
-     * Vérifier si la mission est en retard
-     */
-    public function isOverdue(): bool
-    {
-        return $this->end_date->isPast() && !$this->isCompleted();
-    }
-
-    /**
-     * Scope pour les missions par statut
-     */
-    public function scopeByStatus($query, string $status)
-    {
-        return $query->where('status', $status);
-    }
-
-    /**
-     * Scope pour les missions actives (non clôturées)
-     */
-    public function scopeActive($query)
-    {
-        return $query->whereIn('status', ['planned', 'in_progress']);
-    }
-
-    /**
-     * Scope pour les missions par entité
-     */
-    public function scopeByEntity($query, $entityId)
-    {
-        return $query->where('entite_id', $entityId);
-    }
-
-    /**
-     * Scope pour les missions par coordinateur
-     */
-    public function scopeByCoordinator($query, $coordinatorId)
-    {
-        return $query->where('coordinateur_id', $coordinatorId);
+        return $this->hasMany(
+            \App\Modules\Mission\Models\MissionLog::class,
+            'mission_id'
+        );
     }
 }

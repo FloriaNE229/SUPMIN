@@ -1,0 +1,224 @@
+# 🧪 TESTS API — SEMAINE 1
+
+## 📌 BASE URL
+
+http://127.0.0.1:8000/api/v1
+
+---
+
+# 🔐 AUTHENTIFICATION
+
+## ✅ REGISTER
+
+**POST** /register
+
+### Body
+
+```json
+{
+  "name": "Test User",
+  "email": "test@mail.com",
+  "password": "password123",
+  "password_confirmation": "password123"
+}
+```
+
+### Attendu
+
+* Status: 201
+* Token retourné
+* User créé en base
+
+---
+
+## ✅ LOGIN
+
+**POST** /login
+
+### Body
+
+```json
+{
+  "email": "test@mail.com",
+  "password": "password123"
+}
+```
+
+### Attendu
+
+* Status: 200
+* Token retourné
+
+---
+
+## ✅ ME
+
+**GET** /me
+
+### Headers
+
+Authorization: Bearer {TOKEN}
+
+### Attendu
+
+* User retourné
+
+---
+
+## ✅ LOGOUT
+
+**POST** /logout
+
+### Headers
+
+Authorization: Bearer {TOKEN}
+
+### Attendu
+
+* Token supprimé
+* Accès refusé après
+
+---
+
+# 👥 ROLES
+
+### Attendu
+
+* user créé → rôle `agent`
+* rôles existants :
+
+  * admin
+  * agent
+  * superviseur
+
+---
+
+# 🏢 ENTITIES
+
+## ✅ GET /entities
+
+### Attendu
+
+* Liste des entités
+
+---
+
+## ✅ POST /entities
+
+### Body
+
+```json
+{
+  "name": "Entreprise X",
+  "type": "ONG",
+  "location": "Cotonou"
+}
+```
+
+### Attendu
+
+* Status: 201
+* Entity créée
+
+---
+
+# 📋 MISSIONS
+
+## ✅ GET /missions
+
+### Headers
+
+Authorization: Bearer {TOKEN}
+
+### Attendu
+
+* Liste missions
+* avec entity
+
+---
+
+## ✅ POST /missions
+
+### Body
+
+```json
+{
+  "entity_id": "UUID",
+  "title": "Audit terrain",
+  "status": "PENDING"
+}
+```
+
+### Attendu
+
+* Mission créée
+* user_id automatique
+
+---
+
+# 🧠 ENUMS
+
+## Mission Status autorisés
+
+* PENDING
+* IN_PROGRESS
+* COMPLETED
+* CANCELLED
+
+---
+
+# 📡 FORMAT API
+
+Toutes les réponses doivent respecter :
+
+```json
+{
+  "success": true,
+  "data": {},
+  "message": "",
+  "errors": null
+}
+```
+
+---
+
+# 🚨 TESTS D’ERREUR
+
+## ❌ Sans token
+
+GET /missions
+
+→ 401 attendu
+
+---
+
+## ❌ Mauvais status
+
+```json
+{
+  "status": "INVALID"
+}
+```
+
+→ erreur validation
+
+---
+
+# ✅ FONCTIONNALITÉS IMPLÉMENTÉES
+
+* Auth API (register, login, logout, me)
+* Gestion des rôles (Spatie)
+* CRUD Entity (partiel)
+* CRUD Mission (partiel)
+* Relation Mission ↔ Entity
+* Sécurité via Sanctum
+* Format API standardisé
+
+---
+
+# 📌 STATUT SEMAINE 1
+
+✔ Backend fonctionnel
+✔ Auth sécurisé
+✔ Base de données stable
+✔ API testable via Postman

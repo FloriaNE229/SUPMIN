@@ -3,221 +3,208 @@
 namespace App\Modules\Mission\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use App\Modules\Mission\Models\Mission;
+use App\Modules\Mission\Services\MissionService;
 use App\Modules\Mission\Requests\CreateMissionRequest;
 use App\Modules\Mission\Requests\UpdateMissionRequest;
-use App\Modules\Shared\Helpers\ApiResponse;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
+use App\Modules\Recommendation\Models\Recommendation;
 
 class MissionController extends Controller
 {
+    public function __construct(private MissionService $service) {}
+
     /**
-     * Display a listing of the missions.
+     * GET /missions
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        try {
-            $query = Mission::with(['entite', 'coordinateur']);
+        $query = Mission::with(['entity', 'coordinateur', 'agents']);
 
-            // Filtrage par statut
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
-            }
-
-            // Filtrage par entité
-            if ($request->has('entite_id')) {
-                $query->where('entite_id', $request->entite_id);
-            }
-
-            // Filtrage par coordinateur
-            if ($request->has('coordinateur_id')) {
-                $query->where('coordinateur_id', $request->coordinateur_id);
-            }
-
-            // Filtrage par période
-            if ($request->has('start_date_from')) {
-                $query->where('start_date', '>=', $request->start_date_from);
-            }
-            if ($request->has('start_date_to')) {
-                $query->where('start_date', '<=', $request->start_date_to);
-            }
-
-            // Recherche par titre ou référence
-            if ($request->has('search')) {
-                $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('title', 'like', "%{$search}%")
-                      ->orWhere('reference', 'like', "%{$search}%");
-                });
-            }
-
-            $missions = $query->paginate($request->get('per_page', 15));
-
-            return ApiResponse::success($missions, 'Missions récupérées avec succès');
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des missions: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la récupération des missions', 500);
+        if ($request->has('statut')) {
+            $query->where('statut', $request->statut);
         }
+
+        if ($request->has('entity_id')) {
+            $query->where('entity_id', $request->entity_id);
+        }
+
+        $missions = $query->latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $missions,
+            'message' => 'Liste des missions',
+            'errors'  => null
+        ]);
     }
 
     /**
-     * Store a newly created mission in storage.
+     * GET /missions/{id}
      */
-    public function store(CreateMissionRequest $request): JsonResponse
+    public function show(Mission $mission)
     {
-        try {
-            $mission = Mission::create($request->validated());
-            
-            // Charger les relations pour la réponse
-            $mission->load(['entite', 'coordinateur']);
+        $mission->load(['entity', 'coordinateur', 'agents', 'forms', 'recommendations']);
 
-            return ApiResponse::success($mission, 'Mission créée avec succès', 201);
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la création de la mission: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la création de la mission', 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data'    => $mission,
+            'message' => 'Détail de la mission',
+            'errors'  => null
+        ]);
     }
 
     /**
-     * Display the specified mission.
+     * POST /missions
      */
-    public function show(Mission $mission): JsonResponse
+    public function store(CreateMissionRequest $request)
     {
-        try {
-            $mission->load(['entite', 'coordinateur', 'formulaires', 'reponses', 'recommendations', 'rapports']);
+        $mission = $this->service->create($request->validated(), $request->user());
 
-            return ApiResponse::success($mission, 'Mission récupérée avec succès');
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération de la mission: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la récupération de la mission', 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data'    => $mission,
+            'message' => 'Mission créée',
+            'errors'  => null
+        ], 201);
     }
 
     /**
-     * Update the specified mission in storage.
+     * PUT /missions/{id}
      */
-    public function update(UpdateMissionRequest $request, Mission $mission): JsonResponse
+    public function update(UpdateMissionRequest $request, Mission $mission)
     {
-        try {
-            $mission->update($request->validated());
-            
-            // Charger les relations pour la réponse
-            $mission->load(['entite', 'coordinateur']);
+        $mission = $this->service->update($mission, $request->validated(), $request->user());
 
-            return ApiResponse::success($mission, 'Mission mise à jour avec succès');
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la mise à jour de la mission: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la mise à jour de la mission', 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data'    => $mission,
+            'message' => 'Mission mise à jour',
+            'errors'  => null
+        ]);
     }
 
     /**
-     * Remove the specified mission from storage.
+     * PATCH /missions/{id}/validate
+     * RG-MIS-001 : Validation par coordinateur
+     * RG-MIS-003 : Au moins un formulaire associé
      */
-    public function destroy(Mission $mission): JsonResponse
+    public function validateMission(Mission $mission)
     {
-        try {
-            // Vérifier si la mission a des formulaires associés
-            if ($mission->formulaires()->count() > 0) {
-                return ApiResponse::error('Impossible de supprimer cette mission car elle a des formulaires associés', 400);
-            }
-
-            // Vérifier si la mission a des réponses
-            if ($mission->reponses()->count() > 0) {
-                return ApiResponse::error('Impossible de supprimer cette mission car elle a des réponses enregistrées', 400);
-            }
-
-            // Vérifier si la mission a des recommandations
-            if ($mission->recommendations()->count() > 0) {
-                return ApiResponse::error('Impossible de supprimer cette mission car elle a des recommandations associées', 400);
-            }
-
-            $mission->delete();
-
-            return ApiResponse::success(null, 'Mission supprimée avec succès');
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la suppression de la mission: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la suppression de la mission', 500);
+        if ($mission->statut !== 'planifiée') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seule une mission planifiée peut être validée',
+                'errors'  => null
+            ], 422);
         }
+
+        // RG-MIS-003 : vérifier qu'au moins un formulaire est associé
+        if ($mission->forms()->count() === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de valider : aucun formulaire n\'est associé à cette mission (RG-MIS-003)',
+                'errors'  => ['forms' => 'Au moins un formulaire doit être créé et associé à la mission']
+            ], 422);
+        }
+
+        $mission->update(['statut' => 'en_cours']);
+
+        // Log
+        $mission->logs()->create([
+            'action'      => 'validated',
+            'description' => 'Mission validée et démarrée',
+            'user_id'     => auth()->id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $mission->fresh(),
+            'message' => 'Mission validée et démarrée',
+            'errors'  => null
+        ]);
     }
 
     /**
-     * Get active missions (planned or in progress)
+     * PATCH /missions/{id}/close
+     * RG-MIS-005 : Clôture de mission
      */
-    public function getActiveMissions(Request $request): JsonResponse
+    public function close(Request $request, Mission $mission)
     {
-        try {
-            $missions = Mission::active()
-                ->with(['entite', 'coordinateur'])
-                ->paginate($request->get('per_page', 15));
+        $request->validate([
+            'commentaire' => 'nullable|string',
+        ]);
 
-            return ApiResponse::success($missions, 'Missions actives récupérées avec succès');
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des missions actives: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la récupération des missions actives', 500);
+        if ($mission->statut !== 'en_cours') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seule une mission en cours peut être clôturée',
+                'errors'  => null
+            ], 422);
         }
+
+        $mission->update([
+            'statut'             => 'clôturée',
+            'date_fin_effective' => now(),
+        ]);
+
+        // Log
+        $mission->logs()->create([
+            'action'      => 'closed',
+            'description' => $request->commentaire ?? 'Mission clôturée',
+            'user_id'     => auth()->id(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $mission->fresh(),
+            'message' => 'Mission clôturée avec succès',
+            'errors'  => null
+        ]);
     }
 
     /**
-     * Get missions by entity
+     * GET /missions/{id}/unresolved-recommendations
+     * RG-REC-004 : Recommandations non clôturées des missions précédentes
      */
-    public function getMissionsByEntity(string $entityId, Request $request): JsonResponse
+    public function unresolvedRecommendations(Mission $mission)
     {
-        try {
-            $missions = Mission::byEntity($entityId)
-                ->with(['entite', 'coordinateur'])
-                ->paginate($request->get('per_page', 15));
+        $entityId = $mission->entity_id;
 
-            return ApiResponse::success($missions, "Missions de l'entité {$entityId} récupérées avec succès");
+        $unresolved = Recommendation::whereHas('mission', function ($q) use ($entityId, $mission) {
+            $q->where('entity_id', $entityId)
+              ->where('id', '!=', $mission->id)
+              ->where('statut', 'clôturée');
+        })
+        ->whereNotIn('statut', ['clôturée', 'non_mise_en_oeuvre'])
+        ->with(['mission', 'responsable'])
+        ->get();
 
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des missions par entité: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la récupération des missions par entité', 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data'    => $unresolved,
+            'message' => 'Recommandations non clôturées des missions précédentes',
+            'errors'  => null
+        ]);
     }
 
     /**
-     * Get missions by coordinator
+     * GET /missions/{id}/pdf
      */
-    public function getMissionsByCoordinator(string $coordinatorId, Request $request): JsonResponse
+    public function pdf(Mission $mission)
     {
-        try {
-            $missions = Mission::byCoordinator($coordinatorId)
-                ->with(['entite', 'coordinateur'])
-                ->paginate($request->get('per_page', 15));
-
-            return ApiResponse::success($missions, "Missions du coordinateur {$coordinatorId} récupérées avec succès");
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des missions par coordinateur: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la récupération des missions par coordinateur', 500);
+        if (!$mission->pdf_path) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun PDF disponible'
+            ], 404);
         }
-    }
 
-    /**
-     * Get overdue missions
-     */
-    public function getOverdueMissions(Request $request): JsonResponse
-    {
-        try {
-            $missions = Mission::where('end_date', '<', now())
-                ->where('status', '!=', 'completed')
-                ->with(['entite', 'coordinateur'])
-                ->paginate($request->get('per_page', 15));
-
-            return ApiResponse::success($missions, 'Missions en retard récupérées avec succès');
-
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des missions en retard: ' . $e->getMessage());
-            return ApiResponse::error('Erreur lors de la récupération des missions en retard', 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data'    => ['url' => asset('storage/' . $mission->pdf_path)],
+            'message' => 'PDF disponible',
+            'errors'  => null
+        ]);
     }
 }

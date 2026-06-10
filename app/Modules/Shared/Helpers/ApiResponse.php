@@ -57,6 +57,8 @@ class ApiResponse
         return response()->json($response, $status);
     }
 
+    
+
     /**
      * Retourner une réponse validation error
      */
