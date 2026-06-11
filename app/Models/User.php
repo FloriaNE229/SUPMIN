@@ -20,7 +20,15 @@ class User extends Authenticatable
         'email',
         'mot_de_passe_hash',
         'telephone',
-        'statut'
+        'entity_id',
+        'statut',
+        'tentatives_echec',
+        'date_derniere_connexion',
+        'compte_active',
+        'mdp_activation',
+        'mdp_activation_expire_at',
+        'tentatives_activation',
+        'compte_bloque',
     ];
 
     protected $hidden = [
@@ -28,56 +36,54 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | UUID
-    |--------------------------------------------------------------------------
-    */
+    protected $casts = [
+        'compte_active'             => 'boolean',
+        'compte_bloque'             => 'boolean',
+        'tentatives_echec'          => 'integer',
+        'tentatives_activation'     => 'integer',
+        'date_derniere_connexion'   => 'datetime',
+        'mdp_activation_expire_at'  => 'datetime',
+    ];
 
     public $incrementing = false;
-
     protected $keyType = 'string';
-
-    
-
-    /*
-    |--------------------------------------------------------------------------
-    | AUTH PASSWORD
-    |--------------------------------------------------------------------------
-    */
 
     public function getAuthPassword()
     {
         return $this->mot_de_passe_hash;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | MISSIONS
-    |--------------------------------------------------------------------------
-    */
+    public function entity()
+    {
+        return $this->belongsTo(\App\Modules\Entities\Models\Entity::class, 'entity_id');
+    }
+
+    public function entiteDirigee()
+    {
+        return $this->hasOne(\App\Modules\Entities\Models\Entity::class, 'responsable_id');
+    }
 
     public function missions()
     {
-        return $this->belongsToMany(
-            \App\Modules\Mission\Models\Mission::class
-        );
+        return $this->belongsToMany(\App\Modules\Mission\Models\Mission::class);
     }
 
-
+    public function assignedMissions()
+    {
+        return $this->belongsToMany(
+            \App\Modules\Mission\Models\Mission::class,
+            'mission_user',
+            'user_id',
+            'mission_id'
+        )->withPivot('role')->withTimestamps();
+    }
 
     /**
-      *  Missions assignées (pivot mission_user)
-      */
-
-    public function assignedMissions()
-{
-    return $this->belongsToMany(
-        \App\Modules\Mission\Models\Mission::class,
-        'mission_user',
-        'user_id',
-        'mission_id'
-    )->withPivot('role')
-     ->withTimestamps();
-}
+     * Vérifier si le mot de passe d'activation est expiré
+     */
+    public function isActivationPasswordExpired(): bool
+    {
+        if (!$this->mdp_activation_expire_at) return false;
+        return now()->gt($this->mdp_activation_expire_at);
+    }
 }

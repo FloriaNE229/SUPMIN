@@ -27,6 +27,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // Définir mot de passe personnel (première connexion)
+    Route::post('/set-password', [AuthController::class, 'setPersonalPassword']);
+
     /*
     |--------------------------------------------------------------------------
     | ADMIN ONLY
