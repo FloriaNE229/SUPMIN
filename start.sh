@@ -3,25 +3,19 @@ set -e
 
 echo "🚀 Démarrage SUPMIN..."
 
-# Générer la clé d'application si pas encore définie
-if [ -z "$APP_KEY" ]; then
-    echo "⚠️  Génération automatique APP_KEY"
-    php artisan key:generate --force
-fi
-
 # Vider et reconstruire les caches
-php artisan config:clear
-php artisan cache:clear
-php artisan route:clear
-php artisan view:clear
+php artisan config:clear || true
+php artisan cache:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
 
 # Optimisations production
-php artisan config:cache
-php artisan route:cache
+php artisan config:cache || true
+php artisan route:cache || true
 
-# Lancer les migrations + seeders (1ère fois uniquement)
+# Lancer les migrations (1ère fois)
 echo "📦 Migrations en cours..."
-php artisan migrate --force
+php artisan migrate --force || true
 
 # Lien symbolique pour storage
 php artisan storage:link || true
