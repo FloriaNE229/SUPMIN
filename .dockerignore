@@ -1,0 +1,17 @@
+.git
+.github
+.vscode
+.idea
+node_modules
+vendor
+.env
+.env.example
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+tests
+phpunit.xml
+README.md
+.editorconfig
+debug.php
