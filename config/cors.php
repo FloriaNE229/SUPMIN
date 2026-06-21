@@ -1,24 +1,18 @@
 <?php
 
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    */
-
     'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout'],
 
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'https://supmin-front.vercel.app',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https://supmin-front.*\.vercel\.app$#',
+    ],
 
     'allowed_headers' => ['*'],
 
@@ -27,5 +21,4 @@ return [
     'max_age' => 0,
 
     'supports_credentials' => true,
-
 ];
