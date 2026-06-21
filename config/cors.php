@@ -5,14 +5,17 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-    ],
+   'allowed_origins' => [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://supmin-front.vercel.app',
+    'https://supmin.vercel.app',
+],
 
-    'allowed_origins_patterns' => [
-        '#^https://supmin-front.*\.vercel\.app$#',
-    ],
+'allowed_origins_patterns' => [
+    '#^https://supmin-front.*\.vercel\.app$#',
+    '#^https://supmin.*\.vercel\.app$#',
+],
 
     'allowed_headers' => ['*'],
 
