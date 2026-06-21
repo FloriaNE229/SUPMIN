@@ -13,14 +13,18 @@ php artisan view:clear || true
 php artisan config:cache || true
 php artisan route:cache || true
 
-# Lancer les migrations (1ère fois)
+# Lancer les migrations
 echo "📦 Migrations en cours..."
 php artisan migrate --force || true
+
+# 🌱 Lancer les seeders SI la base est vide (1ère fois uniquement)
+echo "🌱 Vérification des seeders..."
+php artisan db:seed --force || true
 
 # Lien symbolique pour storage
 php artisan storage:link || true
 
-# Configurer le port (Render fournit $PORT dynamiquement)
+# Configurer le port
 sed -i "s/Listen 80/Listen ${PORT}/g" /etc/apache2/ports.conf
 sed -i "s/:80/:${PORT}/g" /etc/apache2/sites-available/*.conf
 
